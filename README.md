@@ -10,7 +10,7 @@ A professional, full-stack Node.js and MySQL application designed for high-effic
   - 📋 **Manager**: Inventory management and supplier oversight (restricted deletion).
   - 👷 **Staff**: Task execution and stock updates.
 - **Intelligent Supplier Mapping**: Prevents product duplication and automates stock synchronization across multiple suppliers.
-- **Advanced Reporting & Exports**: Generate detailed reports in **JSON, CSV, Excel, and PDF** with local IST timestamping.
+- **Advanced Reporting**: Generate professional **Excel** reports with local IST timestamping for revenue and inventory tracking.
 - **Real-time Monitoring**: Detailed audit logs for tracking every action within the system.
 - **Responsive Dashboard**: A modern, premium UI built for efficiency and visual excellence.
 
@@ -56,11 +56,7 @@ A professional, full-stack Node.js and MySQL application designed for high-effic
 
 4. **Run the Application**:
    ```bash
-   # Development mode (with nodemon)
    npm run dev
-
-   # Production mode
-   npm start
    ```
 
 ## 🌐 API Architecture
