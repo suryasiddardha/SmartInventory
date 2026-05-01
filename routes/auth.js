@@ -81,4 +81,65 @@ router.post("/logout", (req, res) => {
   res.json({ message: "Logged out successfully." });
 });
 
+// POST /api/auth/change-password
+router.post(
+  "/change-password",
+  authenticate,
+  validateBody({
+    current_password: { required: true },
+    new_password: { required: true, minLength: 4 },
+  }),
+  asyncHandler(async (req, res) => {
+    const { current_password, new_password } = req.body;
+
+    const [rows] = await db.query("SELECT password FROM users WHERE id = ?", [req.user.id]);
+    if (rows.length === 0) return res.status(404).json({ error: "User not found." });
+
+    const user = rows[0];
+    const passwordMatch = await bcrypt.compare(current_password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Incorrect current password." });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(new_password, 10);
+    await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedNewPassword, req.user.id]);
+
+    res.json({ message: "Password updated successfully." });
+  })
+);
+
+// POST /api/auth/change-password (Public Version for Login Page)
+router.post(
+  "/change-password-public",
+  validateBody({
+    username: { required: true },
+    role: { required: true },
+    current_password: { required: true },
+    new_password: { required: true, minLength: 4 },
+  }),
+  asyncHandler(async (req, res) => {
+    const { username, role, current_password, new_password } = req.body;
+
+    const [rows] = await db.query(
+      "SELECT id, password FROM users WHERE username = ? AND role = ? AND status = 'active'",
+      [username.trim(), role.toLowerCase()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: "User not found or role mismatch." });
+    }
+
+    const user = rows[0];
+    const passwordMatch = await bcrypt.compare(current_password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Incorrect current password." });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(new_password, 10);
+    await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedNewPassword, user.id]);
+
+    res.json({ message: "Password updated successfully. Please login with your new password." });
+  })
+);
+
 module.exports = router;

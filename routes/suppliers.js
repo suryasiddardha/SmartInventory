@@ -348,22 +348,49 @@ router.put(
 router.delete("/:id", authorize("admin"), asyncHandler(async (req, res) => {
   const [[supplier]] = await db.query("SELECT company_name FROM suppliers WHERE id = ?", [req.params.id]);
   
+  if (!supplier) {
+    return res.status(404).json({ error: "Supplier not found." });
+  }
+
+  // Prevent deletion if there is active stock
+  const [[{ total_stock }]] = await db.query(
+    "SELECT COALESCE(SUM(current_stock), 0) as total_stock FROM inventory_batches WHERE supplier_id = ?", 
+    [req.params.id]
+  );
+
+  if (Number(total_stock) > 0) {
+    return res.status(400).json({ 
+      error: `Cannot delete supplier. There are ${total_stock} items in stock from this supplier. Please adjust stock to 0 before deleting.` 
+    });
+  }
+
   const [affectedProducts] = await db.query("SELECT inventory_id FROM supplier_products WHERE supplier_id = ?", [req.params.id]);
 
   const [result] = await db.query("DELETE FROM suppliers WHERE id = ?", [req.params.id]);
-  if (result.affectedRows === 0) return res.status(404).json({ error: "Supplier not found." });
-
+  
   // Recalculate stock for affected inventory items
   for (const { inventory_id } of affectedProducts) {
     const [[inv]] = await db.query("SELECT category, low_stock_point FROM inventory WHERE id = ?", [inventory_id]);
     if (inv) {
-      const [[{ total_stock }]] = await db.query(
-        "SELECT COALESCE(SUM(stock), 0) AS total_stock FROM supplier_products WHERE inventory_id = ? AND is_active = 1",
+      // Re-sync using batches
+      const [[{ new_total_stock }]] = await db.query(
+        "SELECT COALESCE(SUM(current_stock), 0) AS new_total_stock FROM inventory_batches WHERE inventory_id = ?",
         [inventory_id]
       );
-      const totalStock = Number(total_stock || 0);
+      
+      const totalStock = Number(new_total_stock || 0);
       const newStatus = calculateStatus(totalStock, inv.low_stock_point, inv.category);
-      await db.query("UPDATE inventory SET stock = ?, status = ? WHERE id = ?", [totalStock, newStatus, inventory_id]);
+      
+      const [[activeBatch]] = await db.query(
+        "SELECT selling_price FROM inventory_batches WHERE inventory_id = ? AND current_stock > 0 ORDER BY received_at ASC LIMIT 1",
+        [inventory_id]
+      );
+      
+      if (activeBatch) {
+        await db.query("UPDATE inventory SET stock = ?, status = ?, price = ? WHERE id = ?", [totalStock, newStatus, activeBatch.selling_price, inventory_id]);
+      } else {
+        await db.query("UPDATE inventory SET stock = ?, status = ? WHERE id = ?", [totalStock, newStatus, inventory_id]);
+      }
     }
   }
 
@@ -372,7 +399,7 @@ router.delete("/:id", authorize("admin"), asyncHandler(async (req, res) => {
     actionType: "delete",
     entityType: "supplier",
     entityId: req.params.id,
-    details: `Deleted supplier ${supplier?.company_name || req.params.id}`,
+    details: `Deleted supplier ${supplier.company_name}`,
   });
 
   res.json({ message: "Supplier deleted and associated inventory updated." });

@@ -19,26 +19,51 @@ async function syncInventoryStockAndStatus(inventoryId) {
 
   if (!inventory) return { totalStock: 0, status: "out-of-stock" };
 
+  // Sync supplier_products stock with sum of batches
+  await db.query(`
+    UPDATE supplier_products sp
+    LEFT JOIN (
+      SELECT supplier_id, SUM(current_stock) as total
+      FROM inventory_batches
+      WHERE inventory_id = ?
+      GROUP BY supplier_id
+    ) b ON sp.supplier_id = b.supplier_id
+    SET sp.stock = COALESCE(b.total, 0)
+    WHERE sp.inventory_id = ?
+  `, [inventoryId, inventoryId]);
+
   const [[{ total_stock }]] = await db.query(
-    "SELECT COALESCE(SUM(stock), 0) AS total_stock FROM supplier_products WHERE inventory_id = ? AND is_active = 1",
+    "SELECT COALESCE(SUM(current_stock), 0) AS total_stock FROM inventory_batches WHERE inventory_id = ?",
     [inventoryId]
   );
 
   const totalStock = Number(total_stock || 0);
   const status = calculateStatus(totalStock, inventory.low_stock_point, inventory.category);
 
-  await db.query(
-    "UPDATE inventory SET stock = ?, status = ? WHERE id = ?",
-    [totalStock, status, inventoryId]
+  // Update overall inventory price based on oldest active batch
+  const [[activeBatch]] = await db.query(
+    "SELECT selling_price FROM inventory_batches WHERE inventory_id = ? AND current_stock > 0 ORDER BY received_at ASC LIMIT 1",
+    [inventoryId]
   );
+
+  if (activeBatch) {
+    await db.query(
+      "UPDATE inventory SET stock = ?, status = ?, price = ? WHERE id = ?",
+      [totalStock, status, activeBatch.selling_price, inventoryId]
+    );
+  } else {
+    await db.query(
+      "UPDATE inventory SET stock = ?, status = ? WHERE id = ?",
+      [totalStock, status, inventoryId]
+    );
+  }
 
   return { totalStock, status };
 }
 
-// NEW: specific supplier update route (Moved to top to avoid shadowing)
 router.put("/:inventoryId/suppliers/:supplierId", authorize("admin", "manager"), asyncHandler(async (req, res) => {
   const { inventoryId, supplierId } = req.params;
-  const { stock, unit_cost } = req.body;
+  const { stock, unit_cost, selling_price } = req.body;
 
   const [rows] = await db.query(
     "SELECT * FROM supplier_products WHERE inventory_id = ? AND supplier_id = ?",
@@ -52,10 +77,33 @@ router.put("/:inventoryId/suppliers/:supplierId", authorize("admin", "manager"),
   const [[beforeInv]] = await db.query("SELECT stock FROM inventory WHERE id = ?", [inventoryId]);
   const beforeStock = Number(beforeInv?.stock || 0);
 
+  // Update supplier_products (backward compatibility for unit_cost)
   await db.query(
     "UPDATE supplier_products SET stock = ?, unit_cost = ? WHERE inventory_id = ? AND supplier_id = ?",
     [Number(stock), Number(unit_cost), inventoryId, supplierId]
   );
+
+  // If we have selling_price, update the latest batch
+  if (selling_price !== undefined) {
+    const [[latestBatch]] = await db.query(
+      "SELECT id FROM inventory_batches WHERE inventory_id = ? AND supplier_id = ? ORDER BY received_at DESC LIMIT 1",
+      [inventoryId, supplierId]
+    );
+
+    if (latestBatch) {
+      await db.query(
+        "UPDATE inventory_batches SET purchase_cost = ?, selling_price = ? WHERE id = ?",
+        [Number(unit_cost), Number(selling_price), latestBatch.id]
+      );
+    } else {
+      // If no batch exists, create one to hold the prices
+      await db.query(
+        `INSERT INTO inventory_batches (inventory_id, supplier_id, purchase_cost, selling_price, initial_stock, current_stock)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [inventoryId, supplierId, Number(unit_cost), Number(selling_price), Number(stock), Number(stock)]
+      );
+    }
+  }
 
   const { totalStock } = await syncInventoryStockAndStatus(inventoryId);
 
@@ -84,6 +132,70 @@ router.put("/:inventoryId/suppliers/:supplierId", authorize("admin", "manager"),
   res.json({ message: "Supplier product updated successfully", total_stock: totalStock });
 }));
 
+// RESTOCK: Add new stock as a new batch
+router.post("/:inventoryId/restock", authorize("admin", "manager"), asyncHandler(async (req, res) => {
+  const { inventoryId } = req.params;
+  const { supplier_id, quantity, unit_cost, selling_price, expiry_date, reason } = req.body;
+
+  if (!supplier_id || !quantity || !unit_cost || !selling_price) {
+    return res.status(400).json({ error: "Supplier, quantity, unit cost, and selling price are required." });
+  }
+
+  const addQty = Number(quantity);
+  const newCost = Number(unit_cost);
+  const newSellingPrice = Number(selling_price);
+
+  // 1. Get current link to ensure it exists
+  const [[currentLink]] = await db.query(
+    "SELECT id FROM supplier_products WHERE inventory_id = ? AND supplier_id = ?",
+    [inventoryId, supplier_id]
+  );
+
+  if (!currentLink) {
+    return res.status(404).json({ error: "This supplier is not linked to this product. Link them first." });
+  }
+
+  const [[beforeInv]] = await db.query("SELECT stock FROM inventory WHERE id = ?", [inventoryId]);
+  const beforeTotalStock = Number(beforeInv?.stock || 0);
+
+  // 2. Insert new batch
+  await db.query(
+    `INSERT INTO inventory_batches (inventory_id, supplier_id, purchase_cost, selling_price, initial_stock, current_stock, expiry_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [inventoryId, supplier_id, newCost, newSellingPrice, addQty, addQty, expiry_date || null]
+  );
+
+  // 3. Sync inventory table and supplier stock
+  const { totalStock: finalTotalStock } = await syncInventoryStockAndStatus(inventoryId);
+
+  // 4. Record movement
+  await recordInventoryMovement(db, {
+    inventoryId,
+    movementType: "restock",
+    quantity: addQty,
+    beforeStock: beforeTotalStock,
+    afterStock: finalTotalStock,
+    referenceType: "restock_order",
+    performedBy: req.user.id,
+    reason: reason || `Restocked ${addQty} units. P.C: ₹${newCost}, S.P: ₹${newSellingPrice}`,
+  });
+
+  // 5. Log activity
+  await logActivity(db, {
+    userId: req.user.id,
+    actionType: "restock",
+    entityType: "inventory",
+    entityId: inventoryId,
+    details: `Added new batch of ${addQty} units for item ID ${inventoryId}.`,
+  });
+
+  res.json({ 
+    message: "Restock batch added successfully", 
+    new_stock: finalTotalStock, 
+    total_inventory_stock: finalTotalStock
+  });
+}));
+
 router.get("/", asyncHandler(async (req, res) => {
     const [rows] = await db.query(`
       SELECT
@@ -106,17 +218,19 @@ router.get("/", asyncHandler(async (req, res) => {
         s.status AS supplier_status
       FROM inventory i
       LEFT JOIN suppliers s ON i.supplier_id = s.id
+      WHERE i.approval_status = 'approved'
       ORDER BY i.updated_at DESC
     `);
 
-    // Fetch all supplier mappings
+    // Fetch all supplier mappings with MAX selling price across all active batches
     const [supplierProducts] = await db.query(`
       SELECT
         sp.inventory_id,
         s.id AS supplier_id,
         s.company_name,
         sp.stock AS supplier_stock,
-        sp.unit_cost
+        sp.unit_cost,
+        (SELECT MAX(selling_price) FROM inventory_batches WHERE inventory_id = sp.inventory_id AND supplier_id = sp.supplier_id AND current_stock > 0) AS selling_price
       FROM supplier_products sp
       JOIN suppliers s ON sp.supplier_id = s.id
       WHERE sp.is_active = 1
@@ -133,6 +247,7 @@ router.get("/", asyncHandler(async (req, res) => {
         company_name: sp.company_name,
         stock: Number(sp.supplier_stock || 0),
         unit_cost: Number(sp.unit_cost || 0),
+        selling_price: sp.selling_price ? Number(sp.selling_price) : undefined,
       });
     }
 
@@ -159,6 +274,67 @@ router.get("/", asyncHandler(async (req, res) => {
         supplier_status: undefined,
       };
     }));
+}));
+
+// Fetch pending inventory items (Admin only)
+router.get("/pending", authorize("admin"), asyncHandler(async (req, res) => {
+  const [rows] = await db.query(`
+    SELECT
+      i.id,
+      i.product_name,
+      i.category,
+      i.stock,
+      i.price,
+      i.created_at,
+      s.company_name AS supplier_name,
+      sp.unit_cost
+    FROM inventory i
+    LEFT JOIN suppliers s ON i.supplier_id = s.id
+    LEFT JOIN supplier_products sp ON i.id = sp.inventory_id AND i.supplier_id = sp.supplier_id
+    WHERE i.approval_status = 'pending'
+    ORDER BY i.created_at DESC
+  `);
+  res.json(rows);
+}));
+
+// Approve pending inventory item (Admin only)
+router.post("/:id/approve", authorize("admin"), asyncHandler(async (req, res) => {
+  const [result] = await db.query("UPDATE inventory SET approval_status = 'approved' WHERE id = ? AND approval_status = 'pending'", [req.params.id]);
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ error: "Item not found or already approved." });
+  }
+  
+  const [[item]] = await db.query("SELECT product_name FROM inventory WHERE id = ?", [req.params.id]);
+  await logActivity(db, {
+    userId: req.user.id,
+    actionType: "update",
+    entityType: "inventory",
+    entityId: req.params.id,
+    details: `Approved new product: ${item.product_name}`,
+  });
+  
+  res.json({ message: "Product approved successfully." });
+}));
+
+// Reject pending inventory item (Admin only)
+router.post("/:id/reject", authorize("admin"), asyncHandler(async (req, res) => {
+  const [[item]] = await db.query("SELECT product_name FROM inventory WHERE id = ? AND approval_status = 'pending'", [req.params.id]);
+  if (!item) {
+    return res.status(404).json({ error: "Item not found or already processed." });
+  }
+
+  // Delete the item and its supplier links since it was rejected
+  await db.query("DELETE FROM inventory WHERE id = ?", [req.params.id]);
+  
+  await logActivity(db, {
+    userId: req.user.id,
+    actionType: "delete",
+    entityType: "inventory",
+    entityId: req.params.id,
+    details: `Rejected new product addition: ${item.product_name}`,
+  });
+  
+  res.json({ message: "Product rejected and removed." });
 }));
 
 router.get("/alerts", async (req, res) => {
@@ -212,7 +388,8 @@ router.get("/:id/alternative-suppliers", asyncHandler(async (req, res) => {
       s.email,
       s.status AS supplier_status,
       sp.stock AS supplier_stock,
-      sp.unit_cost,
+      (SELECT purchase_cost FROM inventory_batches WHERE inventory_id = sp.inventory_id AND supplier_id = sp.supplier_id ORDER BY received_at DESC LIMIT 1) AS purchase_cost,
+      (SELECT MAX(selling_price) FROM inventory_batches WHERE inventory_id = sp.inventory_id AND supplier_id = sp.supplier_id AND current_stock > 0) AS selling_price,
       sp.contract_price,
       sp.lead_time_days,
       sp.minimum_order_quantity,
@@ -223,7 +400,7 @@ router.get("/:id/alternative-suppliers", asyncHandler(async (req, res) => {
     JOIN suppliers s ON sp.supplier_id = s.id
     JOIN inventory i ON sp.inventory_id = i.id
     WHERE sp.inventory_id = ? AND sp.is_active = 1
-    ORDER BY sp.preferred_supplier DESC, sp.unit_cost ASC
+    ORDER BY sp.preferred_supplier DESC
   `, [inventoryId]);
 
   res.json({
@@ -235,7 +412,8 @@ router.get("/:id/alternative-suppliers", asyncHandler(async (req, res) => {
       email: s.email,
       status: s.supplier_status,
       stock: Number(s.supplier_stock || 0),
-      unit_cost: Number(s.unit_cost || 0),
+      purchase_cost: Number(s.purchase_cost || 0),
+      selling_price: Number(s.selling_price || 0),
       contract_price: s.contract_price ? Number(s.contract_price) : null,
       lead_time_days: Number(s.lead_time_days || 7),
       minimum_order_quantity: Number(s.minimum_order_quantity || 1),
@@ -243,6 +421,80 @@ router.get("/:id/alternative-suppliers", asyncHandler(async (req, res) => {
       is_current: Boolean(s.is_current),
     })),
   });
+}));
+
+// ── Batch Manager: get all batches for an inventory item ──
+router.get("/:id/batches", authorize("admin", "manager"), asyncHandler(async (req, res) => {
+  const inventoryId = req.params.id;
+
+  const [[item]] = await db.query("SELECT product_name FROM inventory WHERE id = ?", [inventoryId]);
+  if (!item) return res.status(404).json({ error: "Inventory item not found." });
+
+  const [batches] = await db.query(`
+    SELECT
+      b.id,
+      b.supplier_id,
+      s.company_name AS supplier_name,
+      b.purchase_cost,
+      b.selling_price,
+      b.initial_stock,
+      b.current_stock,
+      b.received_at,
+      b.expiry_date,
+      CASE WHEN b.current_stock = 0 THEN 'consumed' ELSE 'active' END AS batch_status
+    FROM inventory_batches b
+    JOIN suppliers s ON s.id = b.supplier_id
+    WHERE b.inventory_id = ?
+    ORDER BY b.supplier_id ASC, b.received_at ASC
+  `, [inventoryId]);
+
+  // Mark the FIFO "next" batch per supplier (oldest active batch)
+  const nextBatchPerSupplier = {};
+  for (const b of batches) {
+    if (b.batch_status === "active" && !nextBatchPerSupplier[b.supplier_id]) {
+      nextBatchPerSupplier[b.supplier_id] = b.id;
+    }
+  }
+
+  res.json({
+    product_name: item.product_name,
+    batches: batches.map(b => ({
+      ...b,
+      purchase_cost: Number(b.purchase_cost),
+      selling_price: Number(b.selling_price),
+      is_next_fifo: nextBatchPerSupplier[b.supplier_id] === b.id,
+    })),
+  });
+}));
+
+// ── Batch Manager: update a specific batch ──
+router.put("/:id/batches/:batchId", authorize("admin", "manager"), asyncHandler(async (req, res) => {
+  const { id: inventoryId, batchId } = req.params;
+  const { current_stock, purchase_cost, selling_price, expiry_date } = req.body;
+
+  const [[batch]] = await db.query(
+    "SELECT * FROM inventory_batches WHERE id = ? AND inventory_id = ?",
+    [batchId, inventoryId]
+  );
+  if (!batch) return res.status(404).json({ error: "Batch not found." });
+
+  await db.query(
+    "UPDATE inventory_batches SET current_stock = ?, purchase_cost = ?, selling_price = ?, expiry_date = ? WHERE id = ?",
+    [Number(current_stock), Number(purchase_cost), Number(selling_price), expiry_date || null, batchId]
+  );
+
+  // Re-sync total stock and status
+  await syncInventoryStockAndStatus(inventoryId);
+
+  await logActivity(db, {
+    userId: req.user.id,
+    actionType: "update",
+    entityType: "inventory",
+    entityId: inventoryId,
+    details: `Adjusted batch #${batchId} for inventory item ID ${inventoryId}`,
+  });
+
+  res.json({ message: "Batch updated successfully." });
 }));
 
 router.get("/:id", async (req, res) => {
@@ -273,9 +525,28 @@ router.get("/:id", async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: "Item not found." });
 
     const item = rows[0];
+
+    // Fetch all suppliers for this specific item
+    const [suppliers] = await db.query(`
+      SELECT
+        s.id,
+        s.company_name,
+        sp.stock,
+        sp.unit_cost
+      FROM supplier_products sp
+      JOIN suppliers s ON sp.supplier_id = s.id
+      WHERE sp.inventory_id = ? AND sp.is_active = 1
+    `, [req.params.id]);
+
     res.json({
       ...item,
       low_stock_point: item.low_stock_point,
+      all_suppliers: suppliers.map(s => ({
+        id: s.id,
+        company_name: s.company_name,
+        stock: Number(s.stock || 0),
+        unit_cost: Number(s.unit_cost || 0)
+      })),
       supplier: item.supplier_id ? {
         id: item.supplier_id,
         company_name: item.supplier_name,
@@ -309,12 +580,16 @@ router.post(
       product_name,
       category,
       stock,
+      unit_cost,
       price,
       expiry_date,
       supplier_id,
       description,
       low_stock_point,
     } = req.body;
+    
+    // Default unit_cost to price if missing
+    const finalUnitCost = unit_cost !== undefined ? unit_cost : price;
 
     // CHECK FOR DUPLICATE PRODUCT NAME
     const [[existingItem]] = await db.query(
@@ -355,7 +630,7 @@ router.post(
         [
           supplier_id,
           inventoryId,
-          price,
+          finalUnitCost,
           null,
           'USD',
           supplier?.lead_time_days || 7,
@@ -369,11 +644,13 @@ router.post(
     } else {
       // NEW PRODUCT: Create row in inventory table
       const itemStatus = calculateStatus(stock, low_stock_point, category);
+      const approvalStatus = req.user.role === 'admin' ? 'approved' : 'pending';
+      
       const [result] = await db.query(
         `INSERT INTO inventory (
           product_name, category, stock, price, expiry_date, supplier_id, status, description,
-          low_stock_point
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          low_stock_point, approval_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           product_name,
           category,
@@ -384,6 +661,7 @@ router.post(
           itemStatus,
           description || null,
           low_stock_point || null,
+          approvalStatus
         ]
       );
       inventoryId = result.insertId;
@@ -403,7 +681,7 @@ router.post(
         [
           supplier_id,
           inventoryId,
-          price,
+          finalUnitCost,
           null,
           'USD',
           supplier?.lead_time_days || 7,
@@ -432,6 +710,16 @@ router.post(
       });
     }
 
+    // Insert into inventory_batches
+    if (Number(stock) > 0) {
+      await db.query(
+        `INSERT INTO inventory_batches (inventory_id, supplier_id, purchase_cost, selling_price, initial_stock, current_stock, expiry_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [inventoryId, supplier_id, finalUnitCost, price, stock, stock, expiry_date || null]
+      );
+      await syncInventoryStockAndStatus(inventoryId); // Sync again to update overall price
+    }
+
     res.status(201).json({ 
       message: existingItem ? "Supplier linked to existing product." : "New item added successfully.", 
       id: inventoryId 
@@ -445,6 +733,7 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
       product_name,
       category,
       stock,
+      unit_cost,
       price,
       expiry_date,
       supplier_id,
@@ -453,6 +742,7 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
     } = req.body;
     const requestedSupplierId = supplier_id ? Number(supplier_id) : null;
     const requestedStock = Number(stock);
+    const finalUnitCost = unit_cost !== undefined ? unit_cost : price;
 
     const [[oldInv]] = await db.query("SELECT stock FROM inventory WHERE id = ?", [req.params.id]);
     const oldStock = Number(oldInv?.stock || 0);
@@ -474,12 +764,15 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
       return res.status(400).json({ error: "Stock must be 0 or higher." });
     }
 
-    // Update basic inventory fields (don't delete anything)
     const itemStatus = calculateStatus(requestedStock, low_stock_point, category);
+    
+    // If admin is editing, ensure the item is approved
+    const approvalUpdateSQL = req.user.role === 'admin' ? ", approval_status='approved'" : "";
+
     const [result] = await db.query(
       `UPDATE inventory
        SET product_name=?, category=?, stock=?, price=?, expiry_date=?,
-           status=?, description=?, low_stock_point=?
+           status=?, description=?, low_stock_point=?${approvalUpdateSQL}
        WHERE id=?`,
       [
         product_name,
@@ -533,7 +826,7 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
           [
             requestedSupplierId,
             req.params.id,
-            price,
+            finalUnitCost,
             null,
             'USD',
             supplier?.lead_time_days || 7,
@@ -554,13 +847,13 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
 
         await db.query(
           `UPDATE supplier_products 
-           SET unit_cost = ?, preferred_supplier = 1, lead_time_days = ?, quality_rating = ?, stock = ?
+           SET preferred_supplier = 1, lead_time_days = ?, quality_rating = ?, stock = ?, unit_cost = ?
            WHERE supplier_id = ? AND inventory_id = ?`,
           [
-            price,
             supplier?.lead_time_days || 7,
             supplier?.quality_rating || 4.5,
             requestedStock,
+            finalUnitCost,
             requestedSupplierId,
             req.params.id,
           ]
@@ -588,7 +881,7 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
           [
             requestedSupplierId,
             req.params.id,
-            price,
+            finalUnitCost,
             null,
             'USD',
             supplier?.lead_time_days || 7,
@@ -602,13 +895,13 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
       } else {
         await db.query(
           `UPDATE supplier_products
-           SET unit_cost = ?, lead_time_days = ?, quality_rating = ?, stock = ?
+           SET lead_time_days = ?, quality_rating = ?, stock = ?, unit_cost = ?
            WHERE supplier_id = ? AND inventory_id = ?`,
           [
-            price,
             supplier?.lead_time_days || 7,
             supplier?.quality_rating || 4.5,
             requestedStock,
+            finalUnitCost,
             requestedSupplierId,
             req.params.id,
           ]
@@ -821,5 +1114,38 @@ router.delete(
 );
 
 
+// Delete an inventory item
+router.delete("/:id", authorize("admin"), asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Check if the item exists
+    const [[item]] = await db.query("SELECT product_name FROM inventory WHERE id = ?", [id]);
+    if (!item) {
+      return res.status(404).json({ error: "Item not found." });
+    }
+
+    // Attempt to delete. This will fail if there are foreign key constraints (like existing orders)
+    // that are set to RESTRICT.
+    await db.query("DELETE FROM inventory WHERE id = ?", [id]);
+
+    await logActivity(db, {
+      userId: req.user.id,
+      actionType: "delete",
+      entityType: "inventory",
+      entityId: id,
+      details: `Deleted inventory item: ${item.product_name}`,
+    });
+
+    res.json({ message: "Inventory item deleted successfully." });
+  } catch (err) {
+    if (err.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(400).json({
+        error: "Cannot delete this item because it has existing orders. Please mark it out-of-stock instead.",
+      });
+    }
+    throw err;
+  }
+}));
 
 module.exports = router;

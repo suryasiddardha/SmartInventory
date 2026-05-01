@@ -208,9 +208,11 @@ function enterDashboard() {
 
   applyRBAC(currentUser.role);
   if (isAdmin() || isManager()) {
-    loadSalesReport();
+    if (typeof loadSalesReport === "function") loadSalesReport();
+    if (typeof loadDashboardSnapshot === "function") loadDashboardSnapshot();
   }
   loadDashboardAlerts();
+  if (typeof window.loadPendingApprovals === "function") window.loadPendingApprovals();
   loadInventory();
   loadOrders();
   loadSuppliers();
@@ -588,6 +590,14 @@ async function loadOrders() {
                   : o.status === "cancelled"
                     ? "danger"
                     : "warning";
+
+              const breakdownBtn = isAdmin() && o.status === "completed"
+                ? `<button onclick="openOrderBreakdown(${o.id})" title="Price Breakdown"
+                    style="background:rgba(139,92,246,0.15); color:#a78bfa; border:1px solid rgba(139,92,246,0.3); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600; margin-left:4px;">
+                    Breakdown
+                   </button>`
+                : "";
+
               return `<tr>
                   <td>#ORD-${String(o.id).padStart(4, "0")}</td>
                   <td>${o.customer_name}</td>
@@ -601,6 +611,13 @@ async function loadOrders() {
                   ? `<button class="btn-icon btn-edit orders-edit-btn" onclick="openEditOrder(${o.id}, '${(o.customer_name || "").replace(/'/g, "\\'")}', '${o.status}')" title="Edit Order">Edit</button>`
                   : '<span style="color:var(--text-muted); font-size:12px;">View only</span>'
                 }
+                      ${breakdownBtn}
+                      ${o.status === 'completed' ? `
+                        <button class="btn-icon" onclick="generateInvoice(${o.id})" title="Print Invoice" 
+                          style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600; margin-left:4px;">
+                          Invoice
+                        </button>
+                      ` : ''}
                     </div>
                   </td>
                 </tr>`;
@@ -702,10 +719,10 @@ async function loadOrderInventoryOptions() {
 
       if (suppliers.length > 0) {
         supplierCards.innerHTML = suppliers.map(s => `
-                <div class="supplier-card" data-id="${s.id}" data-stock="${s.stock}" data-price="${s.unit_cost || item.price}">
+                <div class="supplier-card" data-id="${s.id}" data-stock="${s.stock}" data-price="${s.selling_price || item.price}">
                   <div class="supplier-name">${escapeHtml(s.company_name)}</div>
                   <div class="supplier-stock ${s.stock > 10 ? 'high' : 'low'}">${s.stock} in stock</div>
-                  <div class="supplier-price">${formatCurrency(s.unit_cost || item.price, 'INR')}</div>
+                  <div class="supplier-price">${formatCurrency(s.selling_price || item.price, 'INR')}</div>
                 </div>
               `).join("");
 
@@ -902,6 +919,12 @@ document.getElementById("addOrderBtn")?.addEventListener("click", () => {
   const searchInput = document.getElementById("orderInventorySearch");
   if (searchInput) searchInput.value = "";
 
+  const phoneInput = document.getElementById("orderCustomerPhone");
+  if (phoneInput) phoneInput.value = "";
+
+  const emailInput = document.getElementById("orderCustomerEmail");
+  if (emailInput) emailInput.value = "";
+
   const hiddenItemInput = document.getElementById("orderInventorySelect");
   if (hiddenItemInput) hiddenItemInput.value = "";
 
@@ -933,7 +956,6 @@ function openEditSupplier(
   phone,
   email,
   status,
-  leadTime = 7,
   onTimeRate = 95,
   qualityRating = 4.5,
   paymentTerms = "Net 30",
@@ -944,7 +966,6 @@ function openEditSupplier(
   document.getElementById("editSupplierPhone").value = phone;
   document.getElementById("editSupplierEmail").value = email;
   document.getElementById("editSupplierStatus").value = status;
-  document.getElementById("editSupplierLeadTime").value = leadTime;
   document.getElementById("editSupplierOnTimeRate").value = onTimeRate;
   document.getElementById("editSupplierQualityRating").value =
     qualityRating;
@@ -965,8 +986,6 @@ document
       phone: document.getElementById("editSupplierPhone").value,
       email: document.getElementById("editSupplierEmail").value,
       status: document.getElementById("editSupplierStatus").value,
-      lead_time_days: document.getElementById("editSupplierLeadTime")
-        .value,
       on_time_delivery_rate: document.getElementById(
         "editSupplierOnTimeRate",
       ).value,
@@ -1088,6 +1107,9 @@ navItems.forEach((item) => {
       alert("Access denied. Admin only.");
       return;
     }
+    if (this.dataset.page === "customers-page") {
+      loadCustomers();
+    }
     navItems.forEach((nav) => nav.classList.remove("active"));
     this.classList.add("active");
     pageSections.forEach((s) => s.classList.remove("active"));
@@ -1124,10 +1146,72 @@ setupModal(
   "closeOrderModal",
   "cancelOrderBtn",
 );
+setupModal(
+  "openChangePassLink",
+  "changePasswordModal",
+  "closePasswordModal",
+  "cancelPasswordBtn",
+);
+setupModal(
+  "addCustomerBtn",
+  "addCustomerModal",
+  "closeCustomerModal",
+  "cancelCustomerBtn",
+);
+
+document.getElementById("changePasswordForm")?.addEventListener("submit", handlePasswordChange);
+
+async function handlePasswordChange(e) {
+  e.preventDefault();
+  const username = document.getElementById("changePassUsername").value.trim();
+  const role = document.getElementById("changePassRole").value;
+  const current_password = document.getElementById("currentPassword").value;
+  const new_password = document.getElementById("newPassword").value;
+  const confirm = document.getElementById("confirmNewPassword").value;
+
+  if (new_password !== confirm) {
+    showToast("Passwords do not match!", "error");
+    return;
+  }
+
+  try {
+    const res = await API.post("/api/auth/change-password-public", { 
+      username, 
+      role, 
+      current_password, 
+      new_password 
+    });
+    showToast(res.message, "success");
+    document.getElementById("changePasswordModal").style.display = "none";
+    e.target.reset();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
 
 document.getElementById("addOrderBtn")?.addEventListener("click", async () => {
   if (typeof loadOrderInventoryOptions === "function") {
     await loadOrderInventoryOptions();
+  }
+  if (typeof loadCustomers === "function") loadCustomers();
+});
+
+document.getElementById("addCustomerForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = {
+    name: document.getElementById("addCustomerName").value,
+    phone: document.getElementById("addCustomerPhone").value,
+    email: document.getElementById("addCustomerEmail").value,
+    address: document.getElementById("addCustomerAddress").value,
+  };
+  try {
+    await API.post("/api/customers", data);
+    showToast("Customer added!", "success");
+    document.getElementById("addCustomerModal").style.display = "none";
+    e.target.reset();
+    if (typeof loadCustomers === "function") loadCustomers();
+  } catch (err) {
+    showToast(err.message, "error");
   }
 });
 
@@ -1252,6 +1336,8 @@ document
     e.preventDefault();
     const payload = {
       customer_name: document.getElementById("orderCustomerName").value,
+      customer_phone: document.getElementById("orderCustomerPhone").value,
+      customer_email: document.getElementById("orderCustomerEmail").value,
       inventory_id: parseInt(document.getElementById("orderInventorySelect").value, 10),
       supplier_id: Number(document.getElementById("orderSupplierSelect").value),
       items_count: Number(document.getElementById("orderItemsCount").value),
@@ -1388,11 +1474,10 @@ document
       category: document.getElementById("itemCategory").value,
       supplier_id: document.getElementById("itemSupplier").value,
       stock: isEditing ? currentStock + enteredStock : enteredStock,
+      unit_cost: document.getElementById("itemUnitCost").value,
       price: document.getElementById("itemPrice").value,
-      expiry_date:
-        document.getElementById("itemExpiryDate").value || null,
-      low_stock_point:
-        document.getElementById("itemReorderLevel").value || null,
+      expiry_date: document.getElementById("itemExpiryDate").value || null,
+      low_stock_point: document.getElementById("itemReorderLevel").value || null,
       description:
         document.getElementById("itemDescription").value.trim() || null,
     };
@@ -1476,4 +1561,323 @@ document
 document
   .getElementById("orderSearchInput")
   ?.addEventListener("input", () => loadOrders());
+
+// ============================================================
+// ORDER PRICE BREAKDOWN MODAL (Admin only)
+// ============================================================
+async function openOrderBreakdown(orderId) {
+  const modal = document.getElementById("orderBreakdownModal");
+  const content = document.getElementById("orderBreakdownContent");
+  if (!modal || !content) return;
+
+  content.innerHTML = `<div style="padding:40px; text-align:center; color:#94a3b8;">Loading breakdown…</div>`;
+  modal.style.display = "flex";
+
+  try {
+    const d = await API.get(`/api/orders/${orderId}/breakdown`);
+
+    const profitColor = d.total_profit >= 0 ? "#34d399" : "#f87171";
+    const marginColor = d.margin_pct >= 20 ? "#34d399" : d.margin_pct >= 10 ? "#fbbf24" : "#f87171";
+
+    content.innerHTML = `
+      <div style="padding:20px 24px; border-bottom:1px solid rgba(139,92,246,0.25); display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:11px; color:#a78bfa; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:4px;">Price Breakdown · Admin Only</div>
+          <h2 style="margin:0; font-size:18px; font-weight:700; color:#e2e8f0;">#ORD-${String(d.order_id).padStart(4,"0")} — ${escapeHtml(d.product_name)}</h2>
+          <div style="font-size:12px; color:#64748b; margin-top:4px;">
+            ${escapeHtml(d.customer_name)} &nbsp;·&nbsp; ${new Date(d.order_date).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}
+            &nbsp;·&nbsp; Supplier: <strong style="color:#94a3b8;">${escapeHtml(d.supplier_name || "—")}</strong>
+          </div>
+        </div>
+        <button onclick="closeOrderBreakdown()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b; flex-shrink:0; line-height:1;">×</button>
+      </div>
+
+      <div style="padding:20px 24px; display:flex; flex-direction:column; gap:12px;">
+
+        <!-- Qty -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#16203a; border-radius:10px;">
+          <span style="color:#94a3b8; font-size:13px;">Quantity Sold</span>
+          <span style="font-weight:700; color:#e2e8f0; font-size:15px;">${d.items_count} units</span>
+        </div>
+
+        <!-- Selling Price section -->
+        <div style="background:#16203a; border-radius:10px; overflow:hidden;">
+          <div style="padding:10px 16px; background:rgba(52,211,153,0.08); border-bottom:1px solid rgba(52,211,153,0.15);">
+            <span style="font-size:11px; font-weight:700; color:#34d399; letter-spacing:0.07em; text-transform:uppercase;">Revenue</span>
+          </div>
+          <div style="padding:12px 16px; display:flex; justify-content:space-between;">
+            <span style="color:#94a3b8; font-size:13px;">Unit Selling Price (Max Batch Rate)</span>
+            <span style="font-weight:600; color:#e2e8f0;">${formatCurrency(d.unit_selling_price, "INR")}</span>
+          </div>
+          <div style="padding:12px 16px; display:flex; justify-content:space-between; border-top:1px solid #1e2d3d;">
+            <span style="color:#e2e8f0; font-size:14px; font-weight:600;">Total Revenue</span>
+            <span style="font-weight:700; color:#34d399; font-size:16px;">${formatCurrency(d.total_amount, "INR")}</span>
+          </div>
+        </div>
+
+        <!-- Cost section -->
+        <div style="background:#16203a; border-radius:10px; overflow:hidden;">
+          <div style="padding:10px 16px; background:rgba(251,191,36,0.08); border-bottom:1px solid rgba(251,191,36,0.15);">
+            <span style="font-size:11px; font-weight:700; color:#fbbf24; letter-spacing:0.07em; text-transform:uppercase;">Cost (FIFO Blended)</span>
+          </div>
+          <div style="padding:12px 16px; display:flex; justify-content:space-between;">
+            <span style="color:#94a3b8; font-size:13px;">Avg Unit Purchase Cost</span>
+            <span style="font-weight:600; color:#e2e8f0;">${formatCurrency(d.unit_cost, "INR")}</span>
+          </div>
+          <div style="padding:12px 16px; display:flex; justify-content:space-between; border-top:1px solid #1e2d3d;">
+            <span style="color:#e2e8f0; font-size:14px; font-weight:600;">Total Cost</span>
+            <span style="font-weight:700; color:#fbbf24; font-size:16px;">${formatCurrency(d.total_cost, "INR")}</span>
+          </div>
+        </div>
+
+        <!-- Profit section -->
+        <div style="background:#16203a; border-radius:10px; overflow:hidden; border:1px solid ${d.total_profit >= 0 ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'};">
+          <div style="padding:14px 16px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; color:#94a3b8; margin-bottom:2px;">Net Profit</div>
+              <div style="font-size:11px; color:#64748b;">Revenue − Cost</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:800; color:${profitColor}; font-size:22px;">${formatCurrency(d.total_profit, "INR")}</div>
+              <div style="font-size:12px; font-weight:700; color:${marginColor}; margin-top:2px;">${d.margin_pct}% margin</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Method note -->
+        <div style="padding:10px 14px; background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.2); border-radius:8px; font-size:11px; color:#94a3b8; display:flex; align-items:center; gap:8px;">
+          <span style="color:#a78bfa; font-size:14px;">ℹ</span>
+          <span><strong style="color:#a78bfa;">Pricing Method:</strong> Customer charged the highest selling price across all active batches for this supplier. Cost is blended from actual FIFO batch purchase prices.</span>
+        </div>
+
+      </div>
+
+      <div style="padding:14px 24px; border-top:1px solid rgba(139,92,246,0.2); text-align:right;">
+        <button onclick="closeOrderBreakdown()" style="padding:9px 22px; background:#1e2d3d; color:#94a3b8; border:1px solid #374151; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px;">Close</button>
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = `<div style="padding:40px; text-align:center; color:#f87171;">Failed to load breakdown: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function closeOrderBreakdown() {
+  const modal = document.getElementById("orderBreakdownModal");
+  if (modal) modal.style.display = "none";
+}
+
+document.getElementById("orderBreakdownModal")?.addEventListener("click", function (e) {
+  if (e.target === this) closeOrderBreakdown();
+});
+
+window.openOrderBreakdown = openOrderBreakdown;
+window.closeOrderBreakdown = closeOrderBreakdown;
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+async function loadCustomers() {
+  try {
+    const customers = await API.get("/api/customers");
+    const tbody = document.getElementById("customersTableBody");
+    const datalist = document.getElementById("customerSuggestions");
+
+    if (datalist) {
+      datalist.innerHTML = customers.map(c => `<option value="${escapeHtml(c.name)}">`).join("");
+    }
+
+    if (!tbody) return;
+
+    if (customers.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No customers found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = customers.map(c => `
+      <tr>
+        <td>#C-${String(c.id).padStart(3, "0")}</td>
+        <td><strong>${escapeHtml(c.name)}</strong></td>
+        <td>${escapeHtml(c.phone || "—")}</td>
+        <td>${escapeHtml(c.email || "—")}</td>
+        <td>${new Date(c.created_at).toLocaleDateString("en-IN")}</td>
+        <td>
+          <button class="btn-icon" onclick="viewCustomerHistory(${c.id}, '${escapeHtml(c.name).replace(/'/g, "\\'")}')" title="Order History">📜</button>
+          <button class="btn-icon" onclick="deleteCustomer(${c.id})" title="Delete Customer">🗑️</button>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Failed to load customers:", err);
+  }
+}
+
+async function deleteCustomer(id) {
+  if (!confirm("Are you sure? This will not delete their orders.")) return;
+  try {
+    await API.delete(`/api/customers/${id}`);
+    showToast("Customer deleted.", "success");
+    loadCustomers();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+window.loadCustomers = loadCustomers;
+window.deleteCustomer = deleteCustomer;
+
+async function viewCustomerHistory(id, name) {
+  try {
+    const orders = await API.get(`/api/customers/${id}/orders`);
+    const modal = document.getElementById("customerHistoryModal");
+    const tbody = document.getElementById("customerHistoryTableBody");
+    const title = document.getElementById("customerHistoryTitle");
+
+    if (title) title.textContent = `📜 Order History: ${name}`;
+
+    if (orders.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No orders found for this customer.</td></tr>`;
+    } else {
+      tbody.innerHTML = orders.map(o => {
+        const badgeClass = o.status === "completed" ? "success" : o.status === "cancelled" ? "danger" : "warning";
+        return `
+          <tr>
+            <td>#ORD-${String(o.id).padStart(4, "0")}</td>
+            <td>${escapeHtml(o.product_name)}</td>
+            <td>${o.items_count}</td>
+            <td>${formatCurrency(o.total_amount, "INR")}</td>
+            <td>${new Date(o.created_at).toLocaleDateString("en-IN")}</td>
+            <td><span class="badge ${badgeClass}">${o.status.charAt(0).toUpperCase() + o.status.slice(1)}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    modal.style.display = "flex";
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+window.viewCustomerHistory = viewCustomerHistory;
+
+
+// ============================================================
+// INVOICE GENERATION
+// ============================================================
+async function generateInvoice(orderId) {
+  try {
+    const o = await API.get(`/api/orders/${orderId}`);
+    if (o.status !== "completed") {
+      showToast("Invoices can only be generated for COMPLETED orders.", "warning");
+      return;
+    }
+    const modal = document.getElementById("invoiceModal");
+    const printArea = document.getElementById("invoicePrintArea");
+
+    const invoiceNum = `INV-${String(o.id).padStart(6, "0")}`;
+    const date = new Date(o.created_at).toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" });
+
+    printArea.innerHTML = `
+      <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px;">
+        <div>
+          <h1 style="margin: 0; color: #1e293b; font-size: 28px; text-transform: uppercase;">Smart Inventory</h1>
+          <p style="margin: 5px 0; color: #64748b;">Premium Retail & Stock Management</p>
+        </div>
+        <div style="text-align: right;">
+          <h2 style="margin: 0; color: #333;">INVOICE</h2>
+          <p style="margin: 5px 0; font-weight: 700;"># ${invoiceNum}</p>
+          <p style="margin: 5px 0;">Date: ${date}</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+        <div style="color: #1e293b;">
+          <h4 style="margin: 0 0 10px; color: #64748b; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">Billed To:</h4>
+          <p style="margin: 0; font-weight: 700; font-size: 16px; color: #1e293b;">${escapeHtml(o.customer_name)}</p>
+          <p style="margin: 5px 0; font-size: 14px; color: #1e293b;">${escapeHtml(o.customer_email || "No Email")}</p>
+          <p style="margin: 5px 0; font-size: 14px; color: #1e293b;">${escapeHtml(o.customer_phone || "No Phone")}</p>
+          <p style="margin: 5px 0; font-size: 14px; white-space: pre-wrap; color: #1e293b;">${escapeHtml(o.customer_address || "")}</p>
+        </div>
+        <div style="text-align: right; color: #1e293b;">
+          <h4 style="margin: 0 0 10px; color: #64748b; text-transform: uppercase; font-size: 12px; letter-spacing: 1px;">Order Source:</h4>
+          <p style="margin: 0; font-weight: 700; font-size: 14px; color: #1e293b;">${escapeHtml(o.supplier_name || "Direct Stock")}</p>
+          <p style="margin: 5px 0; font-size: 14px; color: #1e293b;">Status: <span style="text-transform: uppercase; font-weight: 700; color: #10b981;">${o.status}</span></p>
+        </div>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <thead>
+          <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+            <th style="padding: 12px; text-align: left; font-size: 14px; color: #64748b;">Description</th>
+            <th style="padding: 12px; text-align: center; font-size: 14px; color: #64748b;">Qty</th>
+            <th style="padding: 12px; text-align: right; font-size: 14px; color: #64748b;">Unit Price</th>
+            <th style="padding: 12px; text-align: right; font-size: 14px; color: #64748b;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #e2e8f0; color: #1e293b;">
+            <td style="padding: 15px 12px; font-weight: 600; color: #1e293b;">${escapeHtml(o.product_name)}</td>
+            <td style="padding: 15px 12px; text-align: center; color: #1e293b;">${o.items_count}</td>
+            <td style="padding: 15px 12px; text-align: right; color: #1e293b;">${formatCurrency(o.total_amount / o.items_count, "INR")}</td>
+            <td style="padding: 15px 12px; text-align: right; font-weight: 700; color: #1e293b;">${formatCurrency(o.total_amount, "INR")}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <div style="width: 250px; color: #1e293b;">
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #64748b;">Subtotal</span>
+            <span style="color: #1e293b;">${formatCurrency(o.total_amount, "INR")}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
+            <span style="color: #64748b;">Tax (GST 0%)</span>
+            <span style="color: #1e293b;">₹0.00</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 15px 0; font-size: 18px; font-weight: 800; color: #1e293b;">
+            <span>Total</span>
+            <span>${formatCurrency(o.total_amount, "INR")}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 50px; padding-top: 20px; border-top: 1px dashed #cbd5e1; text-align: center; color: #94a3b8; font-size: 12px;">
+        <p>Thank you for choosing Smart Inventory. This is a computer generated invoice.</p>
+      </div>
+    `;
+
+    modal.style.display = "flex";
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+}
+
+function printInvoice() {
+  const content = document.getElementById("invoicePrintArea").innerHTML;
+  const printWindow = window.open("", "_blank");
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Invoice</title>
+        <style>
+          body { font-family: 'Inter', sans-serif; -webkit-print-color-adjust: exact; }
+          @media print {
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>${content}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 500);
+}
+
+window.generateInvoice = generateInvoice;
+window.printInvoice = printInvoice;
+
 

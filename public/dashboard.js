@@ -82,6 +82,11 @@ function renderSalesReport(summary, label) {
       <div class="report-summary-value">${formatReportCurrency(summary.revenue)}</div>
       <div class="report-summary-subtext">${escapeHtml(label)} sales total</div>
     </div>
+    <div class="report-summary-card" style="background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3);">
+      <div class="report-summary-label" style="color: #34d399;">Net Profit</div>
+      <div class="report-summary-value" style="color: #34d399;">${formatReportCurrency(summary.profit)}</div>
+      <div class="report-summary-subtext">Revenue minus purchase cost</div>
+    </div>
     <div class="report-summary-card">
       <div class="report-summary-label">Orders</div>
       <div class="report-summary-value">${summary.orders}</div>
@@ -91,11 +96,6 @@ function renderSalesReport(summary, label) {
       <div class="report-summary-label">Items Sold</div>
       <div class="report-summary-value">${summary.items}</div>
       <div class="report-summary-subtext">Units sold</div>
-    </div>
-    <div class="report-summary-card">
-      <div class="report-summary-label">Avg. Order Value</div>
-      <div class="report-summary-value">${formatReportCurrency(summary.averageOrder)}</div>
-      <div class="report-summary-subtext">Average money per order</div>
     </div>
   `;
 }
@@ -123,15 +123,21 @@ async function loadSalesReport() {
     const summary = filtered.reduce(
       (acc, order) => {
         acc.orders += 1;
-        acc.items += Number(order.items_count || 0);
-        acc.revenue += Number(order.total_amount || 0);
+        const itemsCount = Number(order.items_count || 0);
+        const orderRevenue = Number(order.total_amount || 0);
+        const orderProfit = Number(order.total_profit || 0);
+        
+        acc.items += itemsCount;
+        acc.revenue += orderRevenue;
+        acc.profit += orderProfit;
         return acc;
       },
-      { orders: 0, items: 0, revenue: 0 },
+      { orders: 0, items: 0, revenue: 0, profit: 0 },
     );
 
     summary.averageOrder = summary.orders > 0 ? summary.revenue / summary.orders : 0;
     renderSalesReport(summary, range.label);
+    updateCharts(filtered);
   } catch (err) {
     const container = document.getElementById("salesReportSummary");
     if (container) {
@@ -256,14 +262,272 @@ async function loadDashboardAlerts() {
   }
 }
 
+async function loadPendingApprovals() {
+  if (!isAdmin()) {
+    const container = document.getElementById("pendingApprovalsContainer");
+    if (container) container.style.display = "none";
+    return;
+  }
+  
+  const container = document.getElementById("pendingApprovalsContainer");
+  if (container) container.style.display = "block";
+  const tbody = document.getElementById("pendingApprovalsTableBody");
+  if (!tbody) return;
+  
+  try {
+    const pendingItems = await API.get("/api/inventory/pending");
+    if (pendingItems.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding:20px;">No pending requests.</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = pendingItems.map(i => `
+      <tr>
+        <td>${String(i.created_at).slice(0, 10)}</td>
+        <td style="font-weight: 600;">${escapeHtml(i.product_name)}</td>
+        <td>${escapeHtml(i.category || "-")}</td>
+        <td>${escapeHtml(i.supplier_name || "Unknown")}</td>
+        <td>${i.stock}</td>
+        <td>${formatCurrency(i.unit_cost, "INR")}</td>
+        <td>${formatCurrency(i.price, "INR")}</td>
+        <td>
+          <div style="display:flex; gap:8px;">
+            <button onclick="approvePendingItem(${i.id}, '${escapeHtml(i.product_name).replace(/'/g, "\\'")}')" class="btn-icon" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid rgba(16,185,129,0.3); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">Approve</button>
+            <button onclick="reviewPendingItem(${i.id})" class="btn-icon" style="background:rgba(245,158,11,0.15); color:#d97706; border:1px solid rgba(245,158,11,0.3); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">Review/Edit</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+  } catch (err) {
+    console.error("Failed to load pending approvals:", err);
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding:20px; color: var(--danger);">Failed to load requests.</td></tr>';
+  }
+}
+
+window.approvePendingItem = async function(id, name) {
+  if (!confirm(`Are you sure you want to approve "${name}" to be added to inventory?`)) return;
+  try {
+    await API.post(`/api/inventory/${id}/approve`);
+    showToast(`Approved "${name}" successfully.`, "success");
+    loadPendingApprovals();
+    if (typeof loadInventory === 'function') loadInventory();
+  } catch (err) {
+    showToast(err.message, "error");
+  }
+};
+
+window.reviewPendingItem = function(id) {
+  // Set flag for review mode
+  window.isReviewingPendingItem = true;
+
+  // Switch to the inventory page
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.querySelector('[data-page="inventory-page"]').classList.add("active");
+  document.querySelectorAll(".page-section").forEach(s => s.classList.remove("active"));
+  document.getElementById("inventory-page").classList.add("active");
+  
+  // Open the edit form
+  if (typeof window.openInventoryItemForEdit === 'function') {
+    window.openInventoryItemForEdit(id);
+    showToast("Please review and adjust the selling price, then click 'Update Item' to approve it.", "info");
+    
+    // Focus the price field to draw attention to it
+    setTimeout(() => {
+      const priceInput = document.getElementById("itemPrice");
+      if (priceInput) {
+        priceInput.focus();
+        priceInput.select();
+      }
+    }, 500);
+  }
+};
+
+window.loadPendingApprovals = loadPendingApprovals;
+
 function bindReportButtons() {
   document.getElementById("reportGenerateBtn")?.addEventListener("click", () => loadSalesReport());
   document.getElementById("dashboardExcelBtn")?.addEventListener("click", () => exportSalesReportExcel());
 }
 
+// ============================================================
+// DASHBOARD CHARTS
+// ============================================================
+let salesChart = null;
+let categoryChart = null;
+let inventoryChart = null;
+
+const CATEGORY_COLORS = {};
+const COLOR_PALETTE = ["#f59e0b", "#10b981", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#f43f5e"];
+let nextColorIdx = 0;
+
+function getColorForCategory(cat) {
+  if (!CATEGORY_COLORS[cat]) {
+    CATEGORY_COLORS[cat] = COLOR_PALETTE[nextColorIdx % COLOR_PALETTE.length];
+    nextColorIdx++;
+  }
+  return CATEGORY_COLORS[cat];
+}
+
+function initDashboardCharts() {
+  const salesCtx = document.getElementById("salesPerformanceChart")?.getContext("2d");
+  const catCtx = document.getElementById("categoryDistributionChart")?.getContext("2d");
+  const invCtx = document.getElementById("inventoryMixChart")?.getContext("2d");
+
+  if (salesCtx) {
+    salesChart = new Chart(salesCtx, {
+      type: "line",
+      data: { labels: [], datasets: [{ label: "Revenue", data: [], borderColor: "#f59e0b", backgroundColor: "rgba(245, 158, 11, 0.1)", fill: true, tension: 0.4 }] },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#a8b3c7" } }, x: { grid: { display: false }, ticks: { color: "#a8b3c7" } } }, plugins: { legend: { display: false } } }
+    });
+  }
+
+  if (catCtx) {
+    categoryChart = new Chart(catCtx, {
+      type: "doughnut",
+      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWeight: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: "#a8b3c7", padding: 20, font: { size: 11 } } } }, cutout: "70%" }
+    });
+  }
+
+  if (invCtx) {
+    inventoryChart = new Chart(invCtx, {
+      type: "pie",
+      data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWeight: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: "#a8b3c7", padding: 20, font: { size: 11 } } } } }
+    });
+  }
+}
+
+async function updateCharts(filteredOrders) {
+  if (!salesChart || !categoryChart || !inventoryChart) return;
+
+  // 1. Process Sales Trend (by day)
+  const dailyData = {};
+  filteredOrders.forEach(o => {
+    const date = new Date(o.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    dailyData[date] = (dailyData[date] || 0) + Number(o.total_amount);
+  });
+
+  salesChart.data.labels = Object.keys(dailyData);
+  salesChart.data.datasets[0].data = Object.values(dailyData);
+  salesChart.update();
+
+  // 2. Process Sales Category Mix
+  const catData = {};
+  filteredOrders.forEach(o => {
+    const cat = o.category || "Uncategorized";
+    catData[cat] = (catData[cat] || 0) + 1;
+  });
+
+  const catLabels = Object.keys(catData);
+  categoryChart.data.labels = catLabels;
+  categoryChart.data.datasets[0].data = Object.values(catData);
+  categoryChart.data.datasets[0].backgroundColor = catLabels.map(l => getColorForCategory(l));
+  categoryChart.update();
+
+  // 3. Process Inventory Mix (Full Catalog)
+  try {
+    const inventory = await API.get("/api/inventory");
+    const invData = {};
+    inventory.forEach(i => {
+      const cat = i.category || "Uncategorized";
+      invData[cat] = (invData[cat] || 0) + 1;
+    });
+
+    const invLabels = Object.keys(invData);
+    inventoryChart.data.labels = invLabels;
+    inventoryChart.data.datasets[0].data = Object.values(invData);
+    inventoryChart.data.datasets[0].backgroundColor = invLabels.map(l => getColorForCategory(l));
+    inventoryChart.update();
+  } catch (err) {
+    console.error("Failed to load inventory mix:", err);
+  }
+}
+
+async function loadDashboardSnapshot() {
+  const container = document.getElementById("dailySnapshotContainer");
+  if (!container) return;
+
+  try {
+    const orders = await API.get("/api/orders");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const stats = {
+      today: { revenue: 0, profit: 0, orders: 0 },
+      yesterday: { revenue: 0, profit: 0, orders: 0 }
+    };
+
+    orders.forEach(o => {
+      const orderDate = new Date(o.created_at);
+      orderDate.setHours(0, 0, 0, 0);
+
+      if (o.status === "completed") {
+        if (orderDate.getTime() === today.getTime()) {
+          stats.today.revenue += Number(o.total_amount);
+          stats.today.profit += Number(o.total_profit);
+          stats.today.orders++;
+        } else if (orderDate.getTime() === yesterday.getTime()) {
+          stats.yesterday.revenue += Number(o.total_amount);
+          stats.yesterday.profit += Number(o.total_profit);
+          stats.yesterday.orders++;
+        }
+      }
+    });
+
+    const getTrend = (curr, prev) => {
+      if (prev === 0) return curr > 0 ? "up" : "flat";
+      return curr >= prev ? "up" : "down";
+    };
+
+    const trendIcon = (trend) => trend === "up" ? "↗️" : trend === "down" ? "↘️" : "➡️";
+    const trendColor = (trend) => trend === "up" ? "#10b981" : trend === "down" ? "#ef4444" : "var(--text-muted)";
+
+    container.innerHTML = `
+      <div class="report-summary-card" style="background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05)); border-left: 4px solid #3b82f6;">
+        <div class="report-summary-label">Today's Revenue</div>
+        <div class="report-summary-value" style="color: #60a5fa;">${formatCurrency(stats.today.revenue, "INR")}</div>
+        <div class="report-summary-subtext">
+          <span style="color: ${trendColor(getTrend(stats.today.revenue, stats.yesterday.revenue))}">
+            ${trendIcon(getTrend(stats.today.revenue, stats.yesterday.revenue))} vs Yesterday (${formatCurrency(stats.yesterday.revenue, "INR")})
+          </span>
+        </div>
+      </div>
+      <div class="report-summary-card" style="background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); border-left: 4px solid #10b981;">
+        <div class="report-summary-label">Today's Profit</div>
+        <div class="report-summary-value" style="color: #34d399;">${formatCurrency(stats.today.profit, "INR")}</div>
+        <div class="report-summary-subtext">
+          <span style="color: ${trendColor(getTrend(stats.today.profit, stats.yesterday.profit))}">
+            ${trendIcon(getTrend(stats.today.profit, stats.yesterday.profit))} vs Yesterday (${formatCurrency(stats.yesterday.profit, "INR")})
+          </span>
+        </div>
+      </div>
+      <div class="report-summary-card" style="background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.05)); border-left: 4px solid #f59e0b;">
+        <div class="report-summary-label">Today's Orders</div>
+        <div class="report-summary-value" style="color: #fbbf24;">${stats.today.orders}</div>
+        <div class="report-summary-subtext">
+           <span style="color: ${trendColor(getTrend(stats.today.orders, stats.yesterday.orders))}">
+            ${trendIcon(getTrend(stats.today.orders, stats.yesterday.orders))} vs Yesterday (${stats.yesterday.orders})
+          </span>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error("Failed to load daily snapshot:", err);
+  }
+}
+
 bindReportButtons();
 initReportDates();
+initDashboardCharts();
+
 window.loadSalesReport = loadSalesReport;
 window.loadDashboardAlerts = loadDashboardAlerts;
+window.loadDashboardSnapshot = loadDashboardSnapshot;
 window.exportSalesReportExcel = exportSalesReportExcel;
-window.reloadDashboardReport = () => loadSalesReport();
+window.reloadDashboardReport = () => {
+  loadSalesReport();
+  loadDashboardSnapshot();
+};

@@ -13,6 +13,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
 
   <body>
@@ -58,6 +59,9 @@
           </div>
           <button type="submit" class="login-btn">Sign In</button>
         </form>
+        <div style="text-align: center; margin-top: 20px;">
+          <a href="#" id="openChangePassLink" style="color: var(--accent); font-size: 13px; text-decoration: none; opacity: 0.8;">🔒 Change Password?</a>
+        </div>
       </div>
     </div>
 
@@ -82,9 +86,13 @@
             <span class="nav-icon">📦</span>
             <span>Inventory</span>
           </div>
-          <div class="nav-item" data-page="customers-page">
+          <div class="nav-item" data-page="orders-page">
             <span class="nav-icon">🛒</span>
             <span>Orders</span>
+          </div>
+          <div class="nav-item" data-page="customers-page">
+            <span class="nav-icon">👤</span>
+            <span>Customers</span>
           </div>
           <div class="nav-item" data-page="suppliers-page">
             <span class="nav-icon">🚚</span>
@@ -131,6 +139,34 @@
               </div>
             </div>
 
+            <!-- Daily Snapshot Row -->
+            <div class="report-summary-grid" id="dailySnapshotContainer" style="margin-bottom: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+               <!-- Populated by JS -->
+            </div>
+
+            <div class="table-container admin-only" id="pendingApprovalsContainer" style="display: none; border: 1px solid rgba(245,158,11,0.3); box-shadow: 0 4px 20px rgba(245,158,11,0.05);">
+              <div class="table-header" style="background: rgba(245,158,11,0.05);">
+                <h3 style="color: #d97706;">⏳ Pending Approvals (Manager Requests)</h3>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Supplier</th>
+                    <th>Init. Stock</th>
+                    <th>Purchase Cost</th>
+                    <th>Selling Price</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingApprovalsTableBody">
+                  <tr><td colspan="8" class="empty-state" style="padding:20px;">No pending requests.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
             <div class="table-container report-panel" id="reportPanel">
               <div class="table-header">
                 <div>
@@ -168,15 +204,27 @@
                   <div class="report-summary-value">0</div>
                   <div class="report-summary-subtext">Waiting for report</div>
                 </div>
-                <div class="report-summary-card">
-                  <div class="report-summary-label">Items Sold</div>
-                  <div class="report-summary-value">0</div>
-                  <div class="report-summary-subtext">Waiting for report</div>
+              </div>
+
+              <!-- Visual Analytics Section -->
+              <div class="chart-container-grid" style="padding: 0 20px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                <div class="table-container" style="padding: 24px; min-height: 400px; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border);">
+                  <h3 style="margin: 0 0 20px; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase;">📈 Sales Performance Trend</h3>
+                  <div style="flex-grow: 1; position: relative; min-height: 300px;">
+                    <canvas id="salesPerformanceChart"></canvas>
+                  </div>
                 </div>
-                <div class="report-summary-card">
-                  <div class="report-summary-label">Avg. Order Value</div>
-                  <div class="report-summary-value">₹0.00</div>
-                  <div class="report-summary-subtext">Waiting for report</div>
+                <div class="table-container" style="padding: 24px; min-height: 400px; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border);">
+                  <h3 style="margin: 0 0 20px; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase;">🥧 Sales by Category</h3>
+                  <div style="flex-grow: 1; position: relative; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="categoryDistributionChart" style="max-height: 280px !important; width: auto !important;"></canvas>
+                  </div>
+                </div>
+                <div class="table-container" style="padding: 24px; min-height: 400px; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border);">
+                  <h3 style="margin: 0 0 20px; font-size: 16px; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase;">📦 Inventory Mix</h3>
+                  <div style="flex-grow: 1; position: relative; min-height: 300px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="inventoryMixChart" style="max-height: 280px !important; width: auto !important;"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -278,44 +326,27 @@
                   <div class="form-row">
                     <div class="form-group">
                       <label id="itemStockLabel">Stock Quantity</label>
-                      <input
-                        type="number"
-                        id="itemStock"
-                        placeholder="Enter quantity"
-                        min="0"
-                        required
-                      />
+                      <input type="number" id="itemStock" placeholder="Enter quantity" min="0" required />
                     </div>
                     <div class="form-group">
-                      <label>Unit Price (₹)</label>
-                      <input
-                        type="number"
-                        id="itemPrice"
-                        step="0.01"
-                        placeholder="0.00"
-                        min="0"
-                        required
-                      />
+                      <label>Purchase Cost (₹)</label>
+                      <input type="number" id="itemUnitCost" step="0.01" placeholder="0.00" min="0" required />
                     </div>
                   </div>
                   <div class="form-row">
                     <div class="form-group">
-                      <label
-                        >Warranty/Expiry Date
-                        <span style="color: var(--text-muted); font-size: 12px"
-                          >(optional for consumables)</span
-                        ></label
-                      >
-                      <input type="date" id="itemExpiryDate" />
+                      <label>Selling Price (₹)</label>
+                      <input type="number" id="itemPrice" step="0.01" placeholder="0.00" min="0" required />
                     </div>
                     <div class="form-group">
                       <label>Low Stock Point</label>
-                      <input
-                        type="number"
-                        id="itemReorderLevel"
-                        min="0"
-                        placeholder="Auto if blank"
-                      />
+                      <input type="number" id="itemReorderLevel" min="0" placeholder="Auto if blank" />
+                    </div>
+                  </div>
+                  <div class="form-row single">
+                    <div class="form-group">
+                      <label>Warranty/Expiry Date <span style="color: var(--text-muted); font-size: 12px">(optional for consumables)</span></label>
+                      <input type="date" id="itemExpiryDate" />
                     </div>
                   </div>
                   <div class="form-row single">
@@ -387,7 +418,6 @@
                     <th>Supplier</th>
                     <th>Stock</th>
                     <th>Low Stock Point</th>
-                    <th>Price</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -407,7 +437,7 @@
           </section>
 
           <!-- ===== Orders Page ===== -->
-          <section class="page-section" id="customers-page">
+          <section class="page-section" id="orders-page">
             <div class="page-header">
               <h2>Orders</h2>
               <p>Track recent orders and export the report in Excel.</p>
@@ -485,6 +515,39 @@
                       Loading...
                     </td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ===== Customers Page ===== -->
+          <section class="page-section" id="customers-page">
+            <div class="page-header">
+              <h2>Customer Management</h2>
+              <p>View customer history and manage contact details.</p>
+            </div>
+            <div class="table-container">
+              <div class="table-header">
+                <h3>All Customers</h3>
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div class="search-box">
+                    <input type="text" id="customerSearchInput" placeholder="Search customers..." />
+                  </div>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="customersTableBody">
+                  <tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Loading customers...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -679,6 +742,20 @@
       </div>
     </div>
 
+    <!-- Batch Manager Modal -->
+    <div id="batchManagerModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:2500; align-items:center; justify-content:center; padding:24px;">
+      <div id="batchManagerContent" style="background:#0f1c2e; border:1px solid rgba(139,92,246,0.3); border-radius:16px; width:100%; max-width:940px; max-height:88vh; overflow-y:auto; position:relative; box-shadow:0 25px 60px rgba(0,0,0,0.7);">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+    <!-- Order Price Breakdown Modal (Admin only) -->
+    <div id="orderBreakdownModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); z-index:2600; align-items:center; justify-content:center; padding:24px;">
+      <div id="orderBreakdownContent" style="background:#0f1c2e; border:1px solid rgba(139,92,246,0.3); border-radius:16px; width:100%; max-width:520px; position:relative; box-shadow:0 25px 60px rgba(0,0,0,0.7);">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
     <!-- ===== Scanner Modal ===== -->
     <div class="scanner-modal" id="scannerModal">
       <div class="scanner-modal-content">
@@ -702,6 +779,8 @@
       </div>
     </div>
 
+
+
     <!-- ===== Add Order Modal ===== -->
     <div id="addOrderModal" class="modal" style="display: none">
       <div class="modal-content">
@@ -717,8 +796,20 @@
                 type="text"
                 id="orderCustomerName"
                 placeholder="Enter customer name"
+                list="customerSuggestions"
                 required
               />
+              <datalist id="customerSuggestions"></datalist>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone Number (Optional)</label>
+              <input type="tel" id="orderCustomerPhone" placeholder="Enter phone" />
+            </div>
+            <div class="form-group">
+              <label>Email Address (Optional)</label>
+              <input type="email" id="orderCustomerEmail" placeholder="Enter email" />
             </div>
           </div>
           <div class="form-row single">
@@ -940,15 +1031,6 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>Lead Time (days)</label>
-              <input
-                type="number"
-                id="editSupplierLeadTime"
-                min="1"
-                value="7"
-              />
-            </div>
-            <div class="form-group">
               <label>On-Time Delivery Rate (%)</label>
               <input
                 type="number"
@@ -959,8 +1041,6 @@
                 value="95"
               />
             </div>
-          </div>
-          <div class="form-row">
             <div class="form-group">
               <label>Quality Rating</label>
               <input
@@ -972,6 +1052,8 @@
                 value="4.5"
               />
             </div>
+          </div>
+          <div class="form-row single">
             <div class="form-group">
               <label>Payment Terms</label>
               <input type="text" id="editSupplierPaymentTerms" value="Net 30" />
@@ -988,6 +1070,26 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Invoice Modal -->
+    <div id="invoiceModal" class="modal" style="background: rgba(0,0,0,0.85); display: none;">
+      <div class="modal-content" style="max-width: 800px; padding: 0; background: #fff; color: #333; overflow-y: auto; max-height: 90vh;">
+        <div class="modal-header" style="padding: 15px 24px; border-bottom: 1px solid #eee; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h3 style="margin: 0; color: #1e293b;">📄 Invoice Preview</h3>
+            <button type="button" class="btn btn-primary" onclick="printInvoice()" style="padding: 5px 12px; font-size: 12px;">🖨️ Quick Print</button>
+          </div>
+          <button type="button" style="background:none; border:none; font-size:24px; cursor:pointer; color:#94a3b8;" onclick="document.getElementById('invoiceModal').style.display='none'">&times;</button>
+        </div>
+        <div id="invoicePrintArea" style="padding: 40px;">
+          <!-- Content populated by JS -->
+        </div>
+        <div class="action-btns" style="padding: 20px; border-top: 1px solid #eee; background: #f9f9f9;">
+          <button type="button" class="btn btn-primary" onclick="printInvoice()">🖨️ Print Invoice</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('invoiceModal').style.display='none'">Close</button>
+        </div>
       </div>
     </div>
 
@@ -1079,7 +1181,69 @@
         </form>
       </div>
     </div>
+    <!-- ===== Add Customer Modal ===== -->
+    <div id="addCustomerModal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 500px">
+        <div class="modal-header">
+          <h3>👤 Add New Customer</h3>
+          <button class="modal-close" id="closeCustomerModal">&times;</button>
+        </div>
+        <form id="addCustomerForm">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="addCustomerName" placeholder="Enter name" required />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" id="addCustomerPhone" placeholder="Enter phone" />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="addCustomerEmail" placeholder="Enter email" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <textarea id="addCustomerAddress" placeholder="Enter address" rows="2" style="width:100%; padding:10px; background:var(--primary-light); border:1px solid var(--border); border-radius:8px; color:var(--text);"></textarea>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Add Customer</button>
+            <button type="button" class="btn btn-secondary" id="cancelCustomerBtn">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
+    <!-- Customer History Modal -->
+    <div id="customerHistoryModal" class="modal" style="display: none">
+      <div class="modal-content" style="max-width: 900px">
+        <div class="modal-header">
+          <h3 id="customerHistoryTitle">📜 Order History</h3>
+          <button class="modal-close" onclick="document.getElementById('customerHistoryModal').style.display='none'">&times;</button>
+        </div>
+        <div class="table-container" style="margin-top: 20px">
+          <table>
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Total</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="customerHistoryTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="action-btns">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('customerHistoryModal').style.display='none'">Close</button>
+        </div>
+      </div>
+    </div>
     <!-- ===== Edit Employee Modal ===== -->
     <div id="editEmployeeModal" class="modal" style="display: none">
       <div class="modal-content">
@@ -1165,6 +1329,45 @@
             >
               Cancel
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="modal" style="display: none;">
+      <div class="modal-content" style="max-width: 400px">
+        <div class="modal-header">
+          <h3>Change Password</h3>
+          <span class="close" id="closePasswordModal">&times;</span>
+        </div>
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="changePassUsername" required />
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="changePassRole" required>
+              <option value="admin">Administrator</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Current Password</label>
+            <input type="password" id="currentPassword" required />
+          </div>
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="newPassword" required minlength="4" />
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <input type="password" id="confirmNewPassword" required minlength="4" />
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Update Password</button>
+            <button type="button" class="btn btn-secondary" id="cancelPasswordBtn">Cancel</button>
           </div>
         </form>
       </div>

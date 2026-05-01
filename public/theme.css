@@ -503,33 +503,39 @@ tr:hover td {
 
 .order-summary-card {
   display: block;
-  margin-top: 10px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(245, 158, 11, 0.05);
-  border: 1px solid rgba(245, 158, 11, 0.18);
+  margin-top: 15px;
+  padding: 20px;
+  border-radius: 18px;
+  background: rgba(8, 15, 28, 0.98);
+  border: 1px solid var(--accent);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
 }
 
 .order-summary-title {
   font-weight: 700;
-  margin-bottom: 10px;
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .order-summary-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 15px;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .order-summary-chip {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.84);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   color: var(--text);
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .order-summary-chip.success {

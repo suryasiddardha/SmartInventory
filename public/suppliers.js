@@ -53,7 +53,7 @@ function renderSuppliersTable() {
                   canManage
                     ? `<td>
                   <div class="supplier-actions">
-                    <button class="btn-icon btn-edit" onclick="event.stopPropagation(); openEditSupplier(${supplier.id}, '${(supplier.company_name || "").replace(/'/g, "\\'")}', '${(supplier.contact_person || "").replace(/'/g, "\\'")}', '${(supplier.phone || "").replace(/'/g, "\\'")}', '${(supplier.email || "").replace(/'/g, "\\'")}', '${supplier.status}', '${supplier.lead_time_days || 7}', '${supplier.on_time_delivery_rate || 95}', '${supplier.quality_rating || 4.5}', '${(supplier.payment_terms || "Net 30").replace(/'/g, "\\'")}')" title="Edit Supplier">Edit</button>
+                    <button class="btn-icon btn-edit" onclick="event.stopPropagation(); openEditSupplier(${supplier.id}, '${(supplier.company_name || "").replace(/'/g, "\\'")}', '${(supplier.contact_person || "").replace(/'/g, "\\'")}', '${(supplier.phone || "").replace(/'/g, "\\'")}', '${(supplier.email || "").replace(/'/g, "\\'")}', '${supplier.status}', '${supplier.on_time_delivery_rate || 95}', '${supplier.quality_rating || 4.5}', '${(supplier.payment_terms || "Net 30").replace(/'/g, "\\'")}')" title="Edit Supplier">Edit</button>
                     ${isAdmin() ? `<button class="btn-icon btn-delete" onclick="event.stopPropagation(); deleteSupplier(${supplier.id}, '${(supplier.company_name || "").replace(/'/g, "\\'")}')" title="Delete Supplier">Delete</button>` : ""}
                   </div>
                 </td>`

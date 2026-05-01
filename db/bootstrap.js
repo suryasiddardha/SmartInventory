@@ -131,6 +131,43 @@ async function ensureOrdersTableShape() {
     await pool.query(`ALTER TABLE orders ADD COLUMN supplier_id INT NULL AFTER inventory_id`);
     await pool.query(`ALTER TABLE orders ADD CONSTRAINT fk_orders_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL`);
   }
+
+  if (!(await columnExists("orders", "customer_id"))) {
+    await pool.query(`ALTER TABLE orders ADD COLUMN customer_id INT NULL AFTER customer_name`);
+  }
+}
+
+async function ensureAdvancedFeaturesTables() {
+  // 1. inventory_batches expiry_date
+  if (!(await columnExists("inventory_batches", "expiry_date"))) {
+    await pool.query(`ALTER TABLE inventory_batches ADD COLUMN expiry_date DATE NULL AFTER selling_price`);
+  }
+
+  // 2. customers table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255),
+      phone VARCHAR(50),
+      address TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 3. order_batch_usage table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_batch_usage (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NULL,
+      batch_id INT NOT NULL,
+      quantity_used INT NOT NULL,
+      cost_at_time DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (batch_id) REFERENCES inventory_batches(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 async function bootstrapDatabase() {
@@ -138,6 +175,7 @@ async function bootstrapDatabase() {
   await normalizeInventoryCategories();
   await ensureInventoryLowStockColumn();
   await ensureOrdersTableShape();
+  await ensureAdvancedFeaturesTables();
 }
 
 module.exports = {
