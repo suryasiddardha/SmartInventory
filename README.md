@@ -1,103 +1,94 @@
 # Smart Inventory Management System
 
-Smart Inventory is a Node.js and MySQL application for tracking inventory, suppliers, orders, employees, staff tasks, exports, and monitoring data.
+A professional, full-stack Node.js and MySQL application designed for high-efficiency inventory tracking, supplier management, and real-time monitoring.
 
-## What You Get
+## 🚀 Key Features
 
-- Electronics inventory CRUD with low-stock and warranty/expiry alerts
-- Supplier management and supplier-product mapping
-- Order tracking with inventory updates
-- Employee management with role-based access
-- Staff task workflows and monitoring
-- Daily exports in JSON, CSV, Excel, and PDF
-- Analytics endpoints for reporting and oversight
+- **Smart Inventory Management**: Full CRUD for electronics with dynamic low-stock alerts and warranty tracking.
+- **Strict Role-Based Access Control (RBAC)**:
+  - 🛡️ **Admin**: Full system control, user management, and audit log access.
+  - 📋 **Manager**: Inventory management and supplier oversight (restricted deletion).
+  - 👷 **Staff**: Task execution and stock updates.
+- **Intelligent Supplier Mapping**: Prevents product duplication and automates stock synchronization across multiple suppliers.
+- **Advanced Reporting & Exports**: Generate detailed reports in **JSON, CSV, Excel, and PDF** with local IST timestamping.
+- **Real-time Monitoring**: Detailed audit logs for tracking every action within the system.
+- **Responsive Dashboard**: A modern, premium UI built for efficiency and visual excellence.
 
-## Project Structure
+## 🛠️ Technology Stack
+
+- **Backend**: Node.js, Express.js
+- **Database**: MySQL 8+
+- **Security**: JWT (JSON Web Tokens), Bcrypt.js password hashing
+- **Frontend**: Vanilla JavaScript / HTML5 / CSS3 (Modern UI)
+
+## 📋 Prerequisites
+
+- Node.js (v16.x or higher)
+- MySQL (v8.x or higher)
+- XAMPP (Optional, for local MySQL management)
+
+## ⚙️ Local Setup
+
+1. **Clone & Install**:
+   ```bash
+   npm install
+   ```
+
+2. **Database Configuration**:
+   - Create a database named `smart_inventory` in your MySQL/XAMPP server.
+   - Import the schema:
+     ```bash
+     mysql -u root -p smart_inventory < db/schema.sql
+     ```
+
+3. **Environment Variables**:
+   Create a `.env` file in the root directory:
+   ```env
+   PORT=3000
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=your_password
+   DB_NAME=smart_inventory
+   JWT_SECRET=your_secure_secret_key
+   JWT_EXPIRES_IN=8h
+   ```
+
+4. **Run the Application**:
+   ```bash
+   # Development mode (with nodemon)
+   npm run dev
+
+   # Production mode
+   npm start
+   ```
+
+## 🌐 API Architecture
+
+- `POST /api/auth/login` - Authenticate users and return JWT.
+- `GET /api/inventory` - Fetch inventory with low-stock filtering.
+- `GET /api/monitoring/audit-logs` - (Admin only) View system-wide activity.
+- `GET /api/exports/download` - Generate and download reports.
+
+## 📂 Project Structure
 
 ```text
 smart-inventory/
-  server.js             Root entry point
-  src/
-    app.js              Express app setup
-    server.js           HTTP server bootstrap
-    config/
-    api/
-    shared/
-  routes/               Feature routes
-  lib/                  Shared business helpers
-  middleware/           Auth and authorization
-  db/                   Schema, migrations, and connection
-  public/index.html     Frontend shell
+├── db/             # Schema, connection pool, and migrations
+├── lib/            # Business logic and shared helpers
+├── middleware/     # Auth & Role-based middleware
+├── public/         # Static frontend assets (Modern UI)
+├── routes/         # Feature-specific API endpoints
+├── src/            # Core application bootstrap
+└── server.js       # Main entry point
 ```
 
-## Requirements
+## 📝 Recent Updates
 
-- Node.js 16+
-- MySQL 8+
+- ✅ **Hardened RBAC**: Restricted destructive actions to Admin roles only.
+- ✅ **IST Timestamps**: All reports and logs now use local Indian Standard Time.
+- ✅ **Audit Log Export**: Admins can now export activity logs for compliance.
+- ✅ **Smart Duplication Check**: Prevented duplicate items during supplier product mapping.
 
-## Setup
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Create a `.env` file with your database and JWT settings:
-
-```env
-PORT=3000
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=smart_inventory
-JWT_SECRET=change-this-secret
-JWT_EXPIRES_IN=8h
-```
-
-3. Create the database schema:
-
-```bash
-mysql -u root -p < db/schema.sql
-```
-
-4. Start the app:
-
-```bash
-npm start
-```
-
-5. Open:
-
-```text
-http://localhost:3000
-```
-
-## Scripts
-
-- `npm start` starts the server
-- `npm run dev` starts the server with nodemon
-- `npm run check` performs a syntax check on the main server files
-
-## API Overview
-
-- `/api/auth`
-- `/api/inventory`
-- `/api/suppliers`
-- `/api/orders`
-- `/api/employees`
-- `/api/exports`
-- `/api/monitoring`
-
-## Roles
-
-- `admin`
-- `manager`
-- `staff`
-
-## Notes
-
-- The frontend is served from `public/index.html`.
-- The root `server.js` file simply boots the app in `src/server.js`.
-- # If you are using Windows PowerShell, `npm` may be blocked by execution policy. In that case, run commands through `cmd /c` or use `npm.cmd`.
+---
+*Built with ❤️ for efficient inventory management.*
