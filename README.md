@@ -100,4 +100,4 @@ http://localhost:3000
 
 - The frontend is served from `public/index.html`.
 - The root `server.js` file simply boots the app in `src/server.js`.
-- If you are using Windows PowerShell, `npm` may be blocked by execution policy. In that case, run commands through `cmd /c` or use `npm.cmd`.
+- # If you are using Windows PowerShell, `npm` may be blocked by execution policy. In that case, run commands through `cmd /c` or use `npm.cmd`.
