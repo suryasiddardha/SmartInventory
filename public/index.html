@@ -1,0 +1,1178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Inventory Management System</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css?v=10" />
+    <link rel="stylesheet" href="/theme.css?v=10" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+  </head>
+
+  <body>
+    <!-- Login Page -->
+    <div class="login-container" id="loginPage">
+      <div class="login-box">
+        <div class="login-header">
+          <div class="logo">SI</div>
+          <h1>Smart Inventory</h1>
+          <p>Management System</p>
+        </div>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" required>
+              <option value="">Select your role</option>
+              <option value="admin">Administrator</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+          <div class="remember-me">
+            <input type="checkbox" id="remember" />
+            <label for="remember">Remember me</label>
+          </div>
+          <button type="submit" class="login-btn">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-logo">SI</div>
+          <div class="sidebar-title">Smart Inventory</div>
+        </div>
+        <nav class="sidebar-nav">
+          <div class="nav-item" data-page="employees-page">
+            <span class="nav-icon">👥</span>
+            <span>Manage Employees</span>
+          </div>
+          <div class="nav-item active" data-page="dashboard-page">
+            <span class="nav-icon">📊</span>
+            <span>Dashboard</span>
+          </div>
+          <div class="nav-item" data-page="inventory-page">
+            <span class="nav-icon">📦</span>
+            <span>Inventory</span>
+          </div>
+          <div class="nav-item" data-page="customers-page">
+            <span class="nav-icon">🛒</span>
+            <span>Orders</span>
+          </div>
+          <div class="nav-item" data-page="suppliers-page">
+            <span class="nav-icon">🚚</span>
+            <span>Supplier Details</span>
+          </div>
+          <div class="nav-item" data-page="monitoring-page">
+            <span class="nav-icon">🧭</span>
+            <span>Monitoring</span>
+          </div>
+        </nav>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content" id="mainContent">
+        <!-- Top Bar -->
+        <div class="topbar">
+          <div class="menu-toggle" id="menuToggle">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <div class="user-info">
+              <div class="user-avatar" id="userAvatar">U</div>
+              <div class="user-details">
+                <h4 id="userName">User</h4>
+                <p id="userRole">Role</p>
+              </div>
+            </div>
+            <button class="logout-btn" id="logoutBtn">Logout</button>
+          </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+          <!-- ===== Dashboard Page ===== -->
+          <section class="page-section active" id="dashboard-page">
+            <div class="page-header page-header--compact">
+              <div>
+                <h2 id="dashboardTitle">Reports and Alerts</h2>
+                <p id="dashboardDesc">
+                  Generate sales reports and review stock and expiry warnings.
+                </p>
+              </div>
+            </div>
+
+            <div class="table-container report-panel" id="reportPanel">
+              <div class="table-header">
+                <div>
+                  <h3>Report Generation</h3>
+                  <p class="report-note">
+                    Select a date range to generate sales reports, then download
+                    as Excel.
+                  </p>
+                </div>
+                <div class="report-actions" style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;">
+                  <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label for="reportFromDate" style="font-size:12px; font-weight:600; color:var(--text-muted);">From</label>
+                    <input type="date" id="reportFromDate" class="report-date-input" />
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label for="reportToDate" style="font-size:12px; font-weight:600; color:var(--text-muted);">To</label>
+                    <input type="date" id="reportToDate" class="report-date-input" />
+                  </div>
+                  <button class="btn btn-primary" id="reportGenerateBtn">
+                    📊 Generate Report
+                  </button>
+                  <button class="btn btn-secondary" id="dashboardExcelBtn">
+                    📥 Download Excel
+                  </button>
+                </div>
+              </div>
+              <div class="report-summary-grid" id="salesReportSummary">
+                <div class="report-summary-card">
+                  <div class="report-summary-label">Revenue</div>
+                  <div class="report-summary-value">₹0.00</div>
+                  <div class="report-summary-subtext">Waiting for report</div>
+                </div>
+                <div class="report-summary-card">
+                  <div class="report-summary-label">Orders</div>
+                  <div class="report-summary-value">0</div>
+                  <div class="report-summary-subtext">Waiting for report</div>
+                </div>
+                <div class="report-summary-card">
+                  <div class="report-summary-label">Items Sold</div>
+                  <div class="report-summary-value">0</div>
+                  <div class="report-summary-subtext">Waiting for report</div>
+                </div>
+                <div class="report-summary-card">
+                  <div class="report-summary-label">Avg. Order Value</div>
+                  <div class="report-summary-value">₹0.00</div>
+                  <div class="report-summary-subtext">Waiting for report</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <div class="table-header">
+                <h3>Low Stock Alert</h3>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Present Stock</th>
+                    <th>Low Stock Point</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="lowStockTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="table-container">
+              <div class="table-header">
+                <h3>Expiry Date Alert</h3>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product ID</th>
+                    <th>Product Name</th>
+                    <th>Expiry Date</th>
+                    <th>Stock Available</th>
+                  </tr>
+                </thead>
+                <tbody id="expiryTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ===== Inventory Page ===== -->
+          <section class="page-section" id="inventory-page">
+            <div class="page-header">
+              <h2>Inventory Data</h2>
+              <p>
+                Use the same form below to add new items or update existing
+                ones.
+              </p>
+            </div>
+
+            <div class="form-container" id="inventoryFormSection">
+              <div class="form-wrapper">
+                <div
+                  id="itemFormFeedback"
+                  style="display: none; margin-bottom: 20px"
+                ></div>
+                <form id="itemForm">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>Item ID</label>
+                      <input
+                        type="text"
+                        id="itemIdDisplay"
+                        placeholder="Auto-generated"
+                        disabled
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label>Product Name</label>
+                      <input
+                        type="text"
+                        id="itemProductName"
+                        placeholder="Enter product name"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>Category</label>
+                      <select id="itemCategory" required>
+                        <option value="" disabled selected>Select category</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Food & Beverages">Food & Beverages</option>
+                        <option value="Daily Essentials">Daily Essentials</option>
+                        <option value="Utensils & Kitchenware">Utensils & Kitchenware</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label>Supplier</label>
+                      <select id="itemSupplier" required>
+                        <option value="" disabled selected>
+                          Loading suppliers...
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label id="itemStockLabel">Stock Quantity</label>
+                      <input
+                        type="number"
+                        id="itemStock"
+                        placeholder="Enter quantity"
+                        min="0"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label>Unit Price (₹)</label>
+                      <input
+                        type="number"
+                        id="itemPrice"
+                        step="0.01"
+                        placeholder="0.00"
+                        min="0"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label
+                        >Warranty/Expiry Date
+                        <span style="color: var(--text-muted); font-size: 12px"
+                          >(optional for consumables)</span
+                        ></label
+                      >
+                      <input type="date" id="itemExpiryDate" />
+                    </div>
+                    <div class="form-group">
+                      <label>Low Stock Point</label>
+                      <input
+                        type="number"
+                        id="itemReorderLevel"
+                        min="0"
+                        placeholder="Auto if blank"
+                      />
+                    </div>
+                  </div>
+                  <div class="form-row single">
+                    <div class="form-group">
+                      <label
+                        >Description
+                        <span style="color: var(--text-muted); font-size: 12px"
+                          >(optional)</span
+                        ></label
+                      >
+                      <input
+                        type="text"
+                        id="itemDescription"
+                        placeholder="Enter product description"
+                      />
+                    </div>
+                  </div>
+                  <div class="action-btns">
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      id="itemFormSubmitBtn"
+                    >
+                      💾 Save Item
+                    </button>
+                    <button
+                      type="reset"
+                      class="btn btn-secondary"
+                      id="itemFormClearBtn"
+                    >
+                      🗑 Clear Form
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="table-container">
+              <div class="table-header">
+                <h3>All Items</h3>
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div class="search-box">
+                    <input
+                      type="search"
+                      id="inventorySearchInput"
+                      placeholder="Search items..."
+                      autocomplete="off"
+                    />
+                  </div>
+                  <button
+                    class="btn btn-primary"
+                    id="addInventoryItemBtn"
+                    onclick="
+                      document
+                        .getElementById('inventoryFormSection')
+                        .scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    "
+                  >
+                    ➕ Add / Update Item
+                  </button>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item ID</th>
+                    <th>Product Name</th>
+                    <th>Category</th>
+                    <th>Supplier</th>
+                    <th>Stock</th>
+                    <th>Low Stock Point</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody">
+                  <tr>
+                    <td
+                      colspan="9"
+                      style="text-align: center; color: var(--text-muted)"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ===== Orders Page ===== -->
+          <section class="page-section" id="customers-page">
+            <div class="page-header">
+              <h2>Orders</h2>
+              <p>Track recent orders and export the report in Excel.</p>
+            </div>
+
+            <div class="monitoring-summary-grid orders-summary-grid">
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Total Orders</div>
+                <div class="monitoring-summary-value" id="ordersTotalCount">
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">All recent entries</div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Revenue</div>
+                <div class="monitoring-summary-value" id="ordersRevenue">
+                  ₹0.00
+                </div>
+                <div class="monitoring-summary-subtext">Order value total</div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Completed</div>
+                <div class="monitoring-summary-value" id="ordersCompletedCount">
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">Finished orders</div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Pending</div>
+                <div class="monitoring-summary-value" id="ordersPendingCount">
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">Waiting orders</div>
+              </div>
+            </div>
+
+            <div class="table-container orders-card">
+              <div class="table-header">
+                <h3>Recent Orders</h3>
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div class="search-box">
+                    <input
+                      type="search"
+                      id="orderSearchInput"
+                      placeholder="Search orders..."
+                      autocomplete="off"
+                    />
+                  </div>
+                  <button class="btn btn-primary" id="addOrderBtn">
+                    ➕ Add Order
+                  </button>
+                  <button class="btn btn-secondary" id="exportExcelBtn">
+                    Download Excel
+                  </button>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                  <tr>
+                    <td
+                      colspan="7"
+                      style="text-align: center; color: var(--text-muted)"
+                    >
+                      Loading...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ===== Suppliers Page ===== -->
+          <section class="page-section" id="suppliers-page">
+            <div class="page-header">
+              <h2>Supplier Details</h2>
+              <p>
+                Click a supplier to see the products they supply and the stock
+                available right now.
+              </p>
+            </div>
+
+            <div class="table-container">
+              <div class="table-header">
+                <h3>All Suppliers</h3>
+                <div style="display: flex; gap: 12px; align-items: center">
+                  <div class="search-box">
+                    <input
+                      type="text"
+                      id="supplierSearchInput"
+                      placeholder="Search suppliers..."
+                    />
+                  </div>
+                  <button class="btn btn-primary" id="addSupplierBtn">
+                    ➕ Add Supplier
+                  </button>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Supplier ID</th>
+                    <th>Company Name</th>
+                    <th>Contact Person</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th id="supplierActionsHeader" style="display: none">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="suppliersTableBody"></tbody>
+              </table>
+            </div>
+
+            <div class="two-column-grid">
+              <div class="table-container">
+                <div class="table-header">
+                  <h3>Supplier Products</h3>
+                </div>
+                <p class="report-note" style="padding: 0 20px 12px">
+                  Click a supplier row to see the products they supply and how
+                  many units are available right now.
+                </p>
+                <div id="supplierProductsPanel" class="insight-list">
+                  <div class="empty-state">
+                    Select a supplier row to view their products and current
+                    stock.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="page-section" id="monitoring-page">
+            <div class="page-header">
+              <h2>Monitoring</h2>
+              <p>Simple staff activity and recent log view.</p>
+            </div>
+            <div class="monitoring-summary-grid">
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Team Members</div>
+                <div
+                  class="monitoring-summary-value"
+                  id="monitoringTeamMembers"
+                >
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">
+                  Active people in view
+                </div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Orders Handled</div>
+                <div
+                  class="monitoring-summary-value"
+                  id="monitoringOrdersHandled"
+                >
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">Last 7 days</div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Inventory Updates</div>
+                <div
+                  class="monitoring-summary-value"
+                  id="monitoringInventoryUpdates"
+                >
+                  0
+                </div>
+                <div class="monitoring-summary-subtext">Last 7 days</div>
+              </div>
+              <div class="monitoring-summary-card">
+                <div class="monitoring-summary-label">Avg. Success</div>
+                <div class="monitoring-summary-value" id="monitoringAvgSuccess">
+                  0%
+                </div>
+                <div class="monitoring-summary-subtext">Across all staff</div>
+              </div>
+            </div>
+            <div class="monitoring-feed-grid">
+              <div
+                class="table-container monitoring-card monitoring-card--feed"
+              >
+                <div class="table-header"><h3>Staff Activity</h3></div>
+                <div id="teamPerformanceList" class="insight-list">
+                  <div class="empty-state">Loading monitoring data...</div>
+                </div>
+              </div>
+              <div
+                class="table-container monitoring-card monitoring-card--feed"
+              >
+                <div class="table-header" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                  <h3 style="margin:0;">Recent Logs</h3>
+                  <div id="auditExportControls" style="display:none; align-items:flex-end; gap:10px; flex-wrap:wrap;">
+                    <div style="display:flex; flex-direction:column; gap:3px;">
+                      <label for="auditFromDate" style="font-size:11px; font-weight:600; color:var(--text-muted);">From</label>
+                      <input type="date" id="auditFromDate" class="report-date-input" />
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:3px;">
+                      <label for="auditToDate" style="font-size:11px; font-weight:600; color:var(--text-muted);">To</label>
+                      <input type="date" id="auditToDate" class="report-date-input" />
+                    </div>
+                    <button class="btn btn-primary" id="downloadAuditLogsBtn" style="font-size:12px; padding:7px 14px;">
+                      📥 Download Logs
+                    </button>
+                  </div>
+                </div>
+                <div id="auditTrailList" class="insight-list">
+                  <div class="empty-state">Loading audit data...</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== Employees Page ===== -->
+          <section class="page-section" id="employees-page">
+            <div class="page-header">
+              <h2>Manage Employees</h2>
+              <p>Admin can manage staff and managers</p>
+            </div>
+
+            <button class="btn btn-primary" id="addEmployeeBtn">
+              ➕ Add Employee
+            </button>
+
+            <div class="table-container" style="margin-top: 20px">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Address</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="employeeTableBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+        <!-- /content-area -->
+      </main>
+    </div>
+    <!-- /dashboard -->
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Suppliers Modal -->
+    <div class="suppliers-modal" id="suppliersModal">
+      <div class="suppliers-modal-content" id="suppliersModalContent">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+
+    <!-- ===== Scanner Modal ===== -->
+    <div class="scanner-modal" id="scannerModal">
+      <div class="scanner-modal-content">
+        <div class="scanner-modal-header">
+          <h3>📱 Scan Barcode</h3>
+          <button class="scanner-close-btn" id="closeScannerBtn">
+            &times;
+          </button>
+        </div>
+        <div class="scanning-area">
+          <div class="scanning-icon">📷</div>
+          <div class="scanning-text">Position barcode in view</div>
+        </div>
+        <input
+          type="text"
+          class="barcode-input"
+          placeholder="Scanning..."
+          id="barcodeInput"
+          autofocus
+        />
+      </div>
+    </div>
+
+    <!-- ===== Add Order Modal ===== -->
+    <div id="addOrderModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Order</h3>
+          <button class="modal-close" id="closeOrderModal">&times;</button>
+        </div>
+        <form id="addOrderForm">
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Customer Name</label>
+              <input
+                type="text"
+                id="orderCustomerName"
+                placeholder="Enter customer name"
+                required
+              />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Search Inventory Item</label>
+              <div class="search-box-wrapper">
+                <input
+                  type="text"
+                  id="orderInventorySearch"
+                  placeholder="Type product name to search..."
+                  autocomplete="off"
+                />
+                <div id="orderInventorySearchResults" class="search-results-popover" style="display: none;"></div>
+              </div>
+              <input type="hidden" id="orderInventorySelect" value="" />
+            </div>
+          </div>
+          
+          <div id="supplierSelectionContainer" class="form-row single" style="display: none;">
+            <div class="form-group">
+              <label>Select Supplier for this Item</label>
+              <div id="orderSupplierCards" class="supplier-cards-grid">
+                <!-- Populated dynamically -->
+              </div>
+              <input type="hidden" id="orderSupplierSelect" value="" />
+            </div>
+          </div>
+
+          <div id="orderItemDetails" class="order-summary-card" style="display: none;">
+            <div class="empty-state" style="padding: 0">
+              Select a supplier to see details.
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Number of Items</label>
+              <input
+                type="number"
+                placeholder="Enter number of items"
+                required
+                min="1"
+                id="orderItemsCount"
+              />
+              <div
+                id="orderTotalPreview"
+                style="
+                  margin-top: 8px;
+                  padding-left: 4px;
+                  font-size: 14px;
+                  font-weight: 600;
+                  color: var(--accent);
+                "
+              ></div>
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Add Order</button>
+            <button type="button" class="btn btn-secondary" id="cancelOrderBtn">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== Edit Order Modal ===== -->
+    <div id="editOrderModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Order</h3>
+          <button class="modal-close" id="closeEditOrderModal">&times;</button>
+        </div>
+        <form id="editOrderForm">
+          <input type="hidden" id="editOrderId" />
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Customer Name</label>
+              <input type="text" id="editOrderCustomerName" required />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="editOrderStatus" required>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Update Order</button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="cancelEditOrderBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== Add Supplier Modal ===== -->
+    <div id="addSupplierModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Supplier</h3>
+          <button class="modal-close" id="closeSupplierModal">&times;</button>
+        </div>
+        <form id="addSupplierForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Company Name</label>
+              <input type="text" placeholder="Enter company name" required />
+            </div>
+            <div class="form-group">
+              <label>Contact Person</label>
+              <input
+                type="text"
+                placeholder="Enter contact person name"
+                required
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" placeholder="Enter phone number" required />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" placeholder="Enter email address" required />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Status</label>
+              <select required>
+                <option value="">Select status</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Add Supplier</button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="cancelSupplierBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== Edit Supplier Modal ===== -->
+    <div id="editSupplierModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>✏️ Edit Supplier</h3>
+          <button class="modal-close" id="closeEditSupplierModal">
+            &times;
+          </button>
+        </div>
+        <form id="editSupplierForm">
+          <input type="hidden" id="editSupplierId" />
+          <div class="form-row">
+            <div class="form-group">
+              <label>Company Name</label>
+              <input
+                type="text"
+                id="editSupplierCompany"
+                placeholder="Enter company name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Contact Person</label>
+              <input
+                type="text"
+                id="editSupplierContact"
+                placeholder="Enter contact person name"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone</label>
+              <input
+                type="tel"
+                id="editSupplierPhone"
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                id="editSupplierEmail"
+                placeholder="Enter email address"
+              />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="editSupplierStatus" required>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Lead Time (days)</label>
+              <input
+                type="number"
+                id="editSupplierLeadTime"
+                min="1"
+                value="7"
+              />
+            </div>
+            <div class="form-group">
+              <label>On-Time Delivery Rate (%)</label>
+              <input
+                type="number"
+                id="editSupplierOnTimeRate"
+                min="0"
+                max="100"
+                step="0.1"
+                value="95"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Quality Rating</label>
+              <input
+                type="number"
+                id="editSupplierQualityRating"
+                min="1"
+                max="5"
+                step="0.1"
+                value="4.5"
+              />
+            </div>
+            <div class="form-group">
+              <label>Payment Terms</label>
+              <input type="text" id="editSupplierPaymentTerms" value="Net 30" />
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="cancelEditSupplierBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== Add Employee Modal ===== -->
+    <div id="addEmployeeModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Employee</h3>
+          <button class="modal-close" id="closeEmployeeModal">&times;</button>
+        </div>
+        <form id="addEmployeeForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Username</label>
+              <input
+                type="text"
+                id="addEmployeeUsername"
+                placeholder="Enter username"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Role</label>
+              <select id="addEmployeeRole" required>
+                <option value="">Select role</option>
+                <option value="manager">Manager</option>
+                <option value="staff">Staff</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                id="addEmployeeFullName"
+                placeholder="Enter full name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input
+                type="tel"
+                id="addEmployeePhone"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                id="addEmployeeEmail"
+                placeholder="Enter email address"
+              />
+            </div>
+            <div class="form-group">
+              <label>Address</label>
+              <input
+                type="text"
+                id="addEmployeeAddress"
+                placeholder="Enter address"
+              />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                id="addEmployeePassword"
+                placeholder="Enter password"
+                required
+              />
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Add Employee</button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="cancelEmployeeBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== Edit Employee Modal ===== -->
+    <div id="editEmployeeModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>✏️ Edit Employee</h3>
+          <button class="modal-close" id="closeEditEmployeeModal">
+            &times;
+          </button>
+        </div>
+        <form id="editEmployeeForm">
+          <input type="hidden" id="editEmployeeId" />
+          <div class="form-row">
+            <div class="form-group">
+              <label>Username</label>
+              <input
+                type="text"
+                id="editEmployeeUsername"
+                placeholder="Enter new username"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Role</label>
+              <select id="editEmployeeRole" required>
+                <option value="manager">Manager</option>
+                <option value="staff">Staff</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input
+                type="text"
+                id="editEmployeeFullName"
+                placeholder="Enter full name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input
+                type="tel"
+                id="editEmployeePhone"
+                placeholder="Enter phone number"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Email</label>
+              <input
+                type="email"
+                id="editEmployeeEmail"
+                placeholder="Enter email address"
+              />
+            </div>
+            <div class="form-group">
+              <label>Address</label>
+              <input
+                type="text"
+                id="editEmployeeAddress"
+                placeholder="Enter address"
+              />
+            </div>
+          </div>
+          <div class="form-row single">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="editEmployeeStatus" required>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="action-btns">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              id="cancelEditEmployeeBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script src="app.js?v=10"></script>
+    <script src="/dashboard.js?v=10"></script>
+    <script src="inventory.js?v=10"></script>
+    <script src="suppliers.js?v=10"></script>
+    <script src="monitoring.js?v=10"></script>
+  </body>
+</html>
