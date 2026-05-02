@@ -445,8 +445,11 @@ async function loadMonitoringOverview() {
 
   // Show audit log export controls for admin only
   const auditControls = document.getElementById("auditExportControls");
-  if (auditControls && isAdmin()) {
-    auditControls.style.display = "flex";
+  const backupSection = document.getElementById("adminBackupSection");
+  if (isAdmin()) {
+    if (auditControls) auditControls.style.display = "flex";
+    if (backupSection) backupSection.style.display = "block";
+    
     const auditFrom = document.getElementById("auditFromDate");
     const auditTo = document.getElementById("auditToDate");
     if (auditFrom && !auditFrom.value) {
@@ -459,6 +462,18 @@ async function loadMonitoringOverview() {
     }
   }
 }
+
+// Backup click handler
+document.getElementById("downloadBackupBtn")?.addEventListener("click", async () => {
+  try {
+    showToast("Generating backup...", "info");
+    const date = new Date().toISOString().split("T")[0];
+    await API.download("/api/monitoring/backup", `smart-inventory-backup-${date}.sql`);
+    showToast("Backup downloaded successfully!", "success");
+  } catch (err) {
+    showToast(err.message || "Backup failed.", "error");
+  }
+});
 
 // Audit log download handler
 document.getElementById("downloadAuditLogsBtn")?.addEventListener("click", async () => {
@@ -617,6 +632,12 @@ async function loadOrders() {
                           style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600; margin-left:4px;">
                           Invoice
                         </button>
+                        ${o.customer_email ? `
+                          <button class="btn-icon" onclick="emailInvoice(${o.id})" title="Email Invoice" 
+                            style="background:rgba(59,130,246,0.15); color:#3b82f6; border:1px solid rgba(59,130,246,0.3); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600; margin-left:4px;">
+                            Email
+                          </button>
+                        ` : ''}
                       ` : ''}
                     </div>
                   </td>
@@ -1879,5 +1900,17 @@ function printInvoice() {
 
 window.generateInvoice = generateInvoice;
 window.printInvoice = printInvoice;
+
+async function emailInvoice(id) {
+  try {
+    showToast("Sending email...", "info");
+    const data = await API.post(`/api/orders/${id}/send-invoice`);
+    showToast(data.message || "Invoice emailed!", "success");
+  } catch (err) {
+    showToast(err.message || "Failed to send email.", "error");
+  }
+}
+
+window.emailInvoice = emailInvoice;
 
 

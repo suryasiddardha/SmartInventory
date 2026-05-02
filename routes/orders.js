@@ -12,10 +12,11 @@ router.use(authenticate);
 
 router.get("/", asyncHandler(async (req, res) => {
     const [rows] = await db.query(`
-      SELECT o.*, u.username AS created_by_name, i.product_name AS product_name, i.category, sp.unit_cost
+      SELECT o.*, u.username AS created_by_name, i.product_name AS product_name, i.category, sp.unit_cost, c.email AS customer_email
       FROM orders o
       LEFT JOIN users u ON o.created_by = u.id
       LEFT JOIN inventory i ON o.inventory_id = i.id
+      LEFT JOIN customers c ON o.customer_id = c.id
       LEFT JOIN supplier_products sp ON o.inventory_id = sp.inventory_id AND o.supplier_id = sp.supplier_id
       ORDER BY o.order_date DESC, o.created_at DESC
     `);
@@ -112,20 +113,20 @@ router.post(
         [inventory_id, supplier_id]
       );
 
-      // 2. Find the MAX selling_price across all active batches for this supplier
-      //    Customer is always charged the highest available rate (Option B).
-      const customer_unit_price = batches.reduce((max, b) => Math.max(max, Number(b.selling_price || 0)), 0);
-
       let remainingToFulfill = items_count;
-      let total_cost = 0;  // FIFO blended purchase cost
+      let total_cost = 0;    // Blended purchase cost
+      let total_amount = 0;  // Blended selling price (Option A)
       const usageToRecord = [];
 
       for (const batch of batches) {
         if (remainingToFulfill <= 0) break;
 
         const quantityFromBatch = Math.min(batch.current_stock, remainingToFulfill);
-        // Cost uses the actual historical purchase price for each batch (FIFO accuracy)
+        
+        // 2. Accumulate blended totals
         total_cost += quantityFromBatch * Number(batch.purchase_cost);
+        total_amount += quantityFromBatch * Number(batch.selling_price);
+
         remainingToFulfill -= quantityFromBatch;
 
         await conn.query(
@@ -145,8 +146,6 @@ router.post(
         return res.status(400).json({ error: `Insufficient stock from this supplier. Missing ${remainingToFulfill} units.` });
       }
 
-      // Customer is charged the max unit price x total items
-      const total_amount = items_count * customer_unit_price;
       const total_profit = total_amount - total_cost;
       const order_date = new Date().toISOString().split("T")[0];
 
@@ -224,6 +223,9 @@ router.post(
         performedBy: req.user.id,
         reason: `Order created for ${customer_name}`,
       });
+
+      const { checkStockAndNotify } = require("../lib/inventory-alerts");
+      checkStockAndNotify(inventory_id);
 
       res.status(201).json({ message: "Order processed successfully.", id: result.insertId });
     } catch (err) {
@@ -350,6 +352,12 @@ router.put("/:id", authorize("admin", "manager"), async (req, res) => {
 
       await conn.commit();
 
+      const { checkStockAndNotify } = require("../lib/inventory-alerts");
+      const [orderRec] = await db.query("SELECT inventory_id FROM orders WHERE id = ?", [req.params.id]);
+      if (orderRec.length > 0) {
+        checkStockAndNotify(orderRec[0].inventory_id);
+      }
+
       await logActivity(db, {
         userId: req.user.id,
         actionType: "update",
@@ -429,6 +437,91 @@ router.delete("/:id", authorize("admin"), async (req, res) => {
     res.status(500).json({ error: "Failed to delete order." });
   } finally {
     conn.release();
+  }
+});
+
+router.post("/:id/send-invoice", async (req, res) => {
+  try {
+    const [orders] = await db.query(`
+      SELECT o.*, c.email as customer_email, i.product_name, u.username as created_by_name
+      FROM orders o
+      LEFT JOIN customers c ON o.customer_id = c.id
+      LEFT JOIN inventory i ON o.inventory_id = i.id
+      LEFT JOIN users u ON o.created_by = u.id
+      WHERE o.id = ?
+    `, [req.params.id]);
+
+    if (orders.length === 0) return res.status(404).json({ error: "Order not found." });
+    
+    const order = orders[0];
+    if (!order.customer_email) {
+      return res.status(400).json({ error: "This customer does not have an email address." });
+    }
+
+    const { sendMail } = require("../lib/mailer");
+    
+    const formattedAmount = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(order.total_amount);
+    const formattedDate = new Date(order.order_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+    // For now let's use a simple template
+    const subject = `Invoice for Order #${order.id} - Smart Inventory`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; border: 1px solid #eee; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #3b82f6; margin: 0;">INVOICE</h1>
+          <p style="color: #666; margin: 5px 0;">Order #${order.id}</p>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <p style="margin: 5px 0;"><strong>Customer:</strong> ${order.customer_name}</p>
+          <p style="margin: 5px 0;"><strong>Date:</strong> ${formattedDate}</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #eee; text-align: left;">
+              <th style="padding: 10px 0;">Description</th>
+              <th style="padding: 10px 0; text-align: right;">Quantity</th>
+              <th style="padding: 10px 0; text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 15px 0;">${order.product_name}</td>
+              <td style="padding: 15px 0; text-align: right;">${order.items_count}</td>
+              <td style="padding: 15px 0; text-align: right;">${formattedAmount}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr style="border-top: 2px solid #eee; font-size: 18px; font-weight: bold;">
+              <td colspan="2" style="padding: 20px 0;">Total Amount</td>
+              <td style="padding: 20px 0; text-align: right; color: #3b82f6;">${formattedAmount}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div style="background: #f8fafc; padding: 20px; border-radius: 10px; text-align: center; color: #64748b; font-size: 14px;">
+          <p style="margin: 0;">Thank you for your business!</p>
+          <p style="margin: 5px 0 0;">If you have any questions, please contact us at support@smartinventory.com</p>
+        </div>
+      </div>
+    `;
+
+    // Get admin emails for BCC
+    const [adminUsers] = await db.query("SELECT email FROM users WHERE role = 'admin' AND email IS NOT NULL AND email != ''");
+    const bccEmails = adminUsers.map(u => u.email);
+
+    await sendMail({
+      to: order.customer_email,
+      bcc: bccEmails,
+      subject: subject,
+      html: html
+    });
+
+    res.json({ message: "Invoice emailed successfully." });
+  } catch (err) {
+    console.error("Failed to email invoice:", err);
+    res.status(500).json({ error: "Failed to send email." });
   }
 });
 

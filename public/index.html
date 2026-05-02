@@ -617,9 +617,16 @@
           </section>
 
           <section class="page-section" id="monitoring-page">
-            <div class="page-header">
-              <h2>Monitoring</h2>
-              <p>Simple staff activity and recent log view.</p>
+            <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <h2>System Monitoring</h2>
+                <p>Track team performance and audit logs.</p>
+              </div>
+              <div id="adminBackupSection" style="display:none;">
+                <button class="btn btn-secondary" id="downloadBackupBtn" style="background:rgba(16,185,129,0.15); color:#10b981; border:1px solid rgba(16,185,129,0.3); font-size:12px; font-weight:600;">
+                  🛡️ Secure Database Backup
+                </button>
+              </div>
             </div>
             <div class="monitoring-summary-grid">
               <div class="monitoring-summary-card">

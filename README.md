@@ -70,11 +70,12 @@ A premium, full-stack Node.js and MySQL application designed for high-efficiency
 
 ## 📝 Recent Major Updates
 
+- ✅ **Blended FIFO Pricing**: Fair-pricing engine that charges customers based on specific batch costs.
+- ✅ **Email Invoice System**: Automated professional HTML delivery to customers with Admin BCC.
+- ✅ **Intelligent Stock Alerts**: Automatic manager "pings" for low-stock and out-of-stock events.
+- ✅ **Database Backup**: One-click SQL/JSON backup feature for business continuity.
 - ✅ **FIFO Batching Engine**: Integrated complex batch-level stock deduction and restoration.
-- ✅ **CRM Automation**: Unified order taking and customer contact management.
-- ✅ **Visual Dashboard**: Added real-time charting for sales trends and inventory distribution.
-- ✅ **Daily Snapshot**: Implemented "At-a-Glance" performance metrics for managers.
-- ✅ **Secure Public Reset**: Migrated password management to a public-facing secure workflow.
+- ✅ **Visual Dashboard**: Real-time charting for sales trends and inventory distribution.
 
 ---
 *Built for excellence in modern retail and inventory management.*

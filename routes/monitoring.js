@@ -405,4 +405,46 @@ router.get("/audits/export", authorize("admin"), asyncHandler(async (req, res) =
   res.send(workbookHtml);
 }));
 
+router.get("/backup", authorize("admin"), asyncHandler(async (req, res) => {
+  try {
+    const tables = [
+      "users", "inventory", "suppliers", "supplier_products", 
+      "inventory_batches", "customers", "orders", 
+      "order_batch_usage", "inventory_movements", "activity_logs"
+    ];
+
+    let sqlOutput = `-- Smart Inventory Backup\n-- Generated: ${new Date().toISOString()}\n\n`;
+    sqlOutput += "SET FOREIGN_KEY_CHECKS = 0;\n\n";
+
+    for (const table of tables) {
+      // eslint-disable-next-line no-await-in-loop
+      const [rows] = await db.query(`SELECT * FROM ${table}`);
+      if (rows.length > 0) {
+        sqlOutput += `-- Data for table ${table}\n`;
+        const columns = Object.keys(rows[0]).map(c => `\`${c}\``).join(", ");
+        
+        for (const row of rows) {
+          const values = Object.values(row).map(val => {
+            if (val === null) return "NULL";
+            if (typeof val === "string") return `'${val.replace(/'/g, "''")}'`;
+            if (val instanceof Date) return `'${val.toISOString().slice(0, 19).replace("T", " ")}'`;
+            return val;
+          }).join(", ");
+          sqlOutput += `INSERT INTO \`${table}\` (${columns}) VALUES (${values});\n`;
+        }
+        sqlOutput += "\n";
+      }
+    }
+
+    sqlOutput += "SET FOREIGN_KEY_CHECKS = 1;\n";
+
+    res.setHeader("Content-Type", "application/sql");
+    res.setHeader("Content-Disposition", `attachment; filename=smart-inventory-backup-${new Date().toISOString().split("T")[0]}.sql`);
+    res.send(sqlOutput);
+  } catch (err) {
+    console.error("Backup failed:", err);
+    res.status(500).json({ error: "Failed to generate backup." });
+  }
+}));
+
 module.exports = router;
