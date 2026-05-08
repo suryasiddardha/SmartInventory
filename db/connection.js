@@ -11,6 +11,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  ssl: env.db.ssl === "true" ? { rejectUnauthorized: false } : undefined,
 });
 
 // Test the database connection on startup.

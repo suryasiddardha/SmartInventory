@@ -19,6 +19,7 @@ const env = {
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "",
     database: process.env.DB_NAME || "smart_inventory",
+    ssl: process.env.DB_SSL || "false",
   },
 };
 

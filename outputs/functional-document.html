@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Inventory Management System - Functional Document</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #172033;
+      background: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11.2pt;
+      line-height: 1.55;
+    }
+    .cover {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border: 1px solid #d7dde8;
+      padding: 42px;
+      page-break-after: always;
+      background: linear-gradient(135deg, #f7f9fc 0%, #ffffff 54%, #eef5f2 100%);
+    }
+    .label {
+      color: #2f6b5f;
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+    h1 {
+      color: #101828;
+      font-size: 30pt;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      max-width: 760px;
+    }
+    .subtitle {
+      color: #475467;
+      font-size: 14pt;
+      max-width: 720px;
+      margin: 0 0 44px;
+    }
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      max-width: 720px;
+      margin-top: 28px;
+    }
+    .cover-card {
+      border: 1px solid #d7dde8;
+      background: rgba(255, 255, 255, .82);
+      padding: 14px 16px;
+    }
+    .cover-card strong {
+      display: block;
+      color: #101828;
+      margin-bottom: 3px;
+    }
+    h2 {
+      color: #101828;
+      font-size: 17pt;
+      margin: 26px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #d7dde8;
+      page-break-after: avoid;
+    }
+    h3 {
+      color: #1d2939;
+      font-size: 13.4pt;
+      margin: 18px 0 8px;
+      page-break-after: avoid;
+    }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 7px 0 13px 22px; padding: 0; }
+    li { margin: 3px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #d7dde8;
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+    th {
+      background: #edf3f1;
+      color: #101828;
+      text-align: left;
+      font-weight: 700;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #f2f4f7;
+      color: #344054;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10pt;
+    }
+    .callout {
+      border-left: 4px solid #2f6b5f;
+      background: #f3f8f6;
+      padding: 10px 12px;
+      margin: 12px 0 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 16px;
+    }
+    .box {
+      border: 1px solid #d7dde8;
+      background: #fbfcfe;
+      padding: 10px 12px;
+      page-break-inside: avoid;
+    }
+    .box strong {
+      display: block;
+      color: #101828;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="label">Functional Document</div>
+    <h1>Smart Inventory Management System</h1>
+    <p class="subtitle">Functional requirements, user roles, workflows, business rules, inputs, outputs, and acceptance criteria for the project.</p>
+    <div class="cover-grid">
+      <div class="cover-card"><strong>Project</strong> Smart Inventory Management System</div>
+      <div class="cover-card"><strong>Document Type</strong> Functional Specification</div>
+      <div class="cover-card"><strong>Backend</strong> Node.js and Express.js</div>
+      <div class="cover-card"><strong>Database</strong> MySQL 8+</div>
+      <div class="cover-card"><strong>Frontend</strong> HTML5, CSS3, Vanilla JavaScript</div>
+      <div class="cover-card"><strong>Prepared For</strong> Project Submission</div>
+    </div>
+  </section>
+
+  <main>
+    <h2>1. Project Purpose</h2>
+    <p>The Smart Inventory Management System is designed to help a retail or warehouse business manage inventory, suppliers, customers, employees, sales orders, invoices, stock alerts, and business reports from a single web application.</p>
+    <p>The system reduces manual stock tracking by providing automated FIFO stock deduction, batch-level inventory control, role-based access, customer history, supplier intelligence, and real-time dashboard monitoring.</p>
+
+    <h2>2. Scope of the System</h2>
+    <ul>
+      <li>User login, logout, password reset, and password change</li>
+      <li>Role-based access for admin, manager, and staff</li>
+      <li>Product inventory creation, update, delete, approval, and search</li>
+      <li>FIFO batch tracking and restocking</li>
+      <li>Supplier management and supplier-product mapping</li>
+      <li>Order creation, update, cancellation, deletion, and invoice generation</li>
+      <li>Customer contact management and order history</li>
+      <li>Employee/user management</li>
+      <li>Dashboard analytics and stock alerts</li>
+      <li>Export reports, audit logs, and database backup</li>
+      <li>Email delivery for customer invoices and stock alerts</li>
+    </ul>
+
+    <h2>3. User Roles</h2>
+    <table>
+      <tr><th>Role</th><th>Main Responsibilities</th></tr>
+      <tr><td>Admin</td><td>Full system control, user management, product approvals, delete permissions, audit exports, and backup generation</td></tr>
+      <tr><td>Manager</td><td>Inventory oversight, supplier management, restocking, order updates, monitoring, and approvals workflow support</td></tr>
+      <tr><td>Staff</td><td>Daily operational work such as viewing stock, creating orders, and updating assigned records</td></tr>
+    </table>
+
+    <h2>4. Functional Requirements</h2>
+    <h3>4.1 Authentication and Account Access</h3>
+    <p>The system shall allow users to log in using valid credentials. Passwords are stored securely using hashing. After successful login, the backend returns a JWT token used for protected API access.</p>
+    <ul>
+      <li>User can log in with username and password.</li>
+      <li>User can log out from the application.</li>
+      <li>Logged-in user details can be fetched from the current session.</li>
+      <li>User can change password after authentication.</li>
+      <li>Password reset is available from the login screen.</li>
+      <li>Invalid or expired tokens are rejected.</li>
+    </ul>
+
+    <h3>4.2 Dashboard and Analytics</h3>
+    <ul>
+      <li>Display revenue, profit, order, and inventory snapshots.</li>
+      <li>Show stock alerts for low-stock and expiring items.</li>
+      <li>Show pending product approvals for admin users.</li>
+      <li>Display sales trends and category distribution using charts.</li>
+      <li>Provide date-based sales report filtering.</li>
+      <li>Allow report export for business use.</li>
+    </ul>
+
+    <h3>4.3 Inventory Management</h3>
+    <ul>
+      <li>View all approved inventory items.</li>
+      <li>Search and filter products.</li>
+      <li>Add new product with SKU, category, price, supplier, expiry date, description, and low-stock point.</li>
+      <li>Update and delete product records according to permissions.</li>
+      <li>Calculate stock status as in-stock, low-stock, critical, or out-of-stock.</li>
+      <li>Track inventory movements for restock, adjustment, sale, and return events.</li>
+      <li>Show alternative suppliers for a product.</li>
+    </ul>
+
+    <h3>4.4 Product Approval Workflow</h3>
+    <ul>
+      <li>Products created by admin can be approved immediately.</li>
+      <li>Products created by non-admin users can be marked as pending.</li>
+      <li>Admin can view, approve, or reject pending products.</li>
+    </ul>
+
+    <h3>4.5 FIFO Batch Management</h3>
+    <ul>
+      <li>Each restock creates or updates inventory batch records.</li>
+      <li>Batches store supplier, purchase cost, selling price, initial stock, current stock, received date, and expiry date.</li>
+      <li>Admin and manager can view and update product batches.</li>
+      <li>Orders consume stock from the oldest available batch first.</li>
+      <li>Batch usage is stored for every order.</li>
+      <li>Cancelled or deleted orders restore stock back to the original consumed batches.</li>
+    </ul>
+
+    <h3>4.6 Supplier Management</h3>
+    <ul>
+      <li>View, add, update, and delete suppliers according to permissions.</li>
+      <li>Store company name, contact details, status, lead time, delivery rate, quality rating, and payment terms.</li>
+      <li>View products supplied by a supplier.</li>
+      <li>View supplier intelligence and performance indicators.</li>
+      <li>Link suppliers to inventory items with pricing, quality, lead-time, minimum order quantity, and preferred supplier status.</li>
+    </ul>
+
+    <h3>4.7 Order Management</h3>
+    <ul>
+      <li>View, create, update, cancel, and delete orders according to permissions.</li>
+      <li>Capture customer phone and email during order creation.</li>
+      <li>Automatically create or update customer records when an order is placed.</li>
+      <li>Deduct inventory using FIFO batch logic.</li>
+      <li>Calculate order amount, cost, and profit based on consumed batches.</li>
+      <li>View order batch breakdown for admin users.</li>
+    </ul>
+
+    <h3>4.8 Customer Management</h3>
+    <ul>
+      <li>View, add, update, and delete customer details according to permissions.</li>
+      <li>View all orders placed by a selected customer.</li>
+      <li>Auto-fill customer name suggestions during order creation.</li>
+    </ul>
+
+    <h3>4.9 Employee Management</h3>
+    <ul>
+      <li>Admin can view, add, update, and delete employee/user records.</li>
+      <li>Employee records include role, status, department, and manager assignment.</li>
+      <li>Role controls decide which screens and actions are visible to each user.</li>
+    </ul>
+
+    <h3>4.10 Invoice Management</h3>
+    <ul>
+      <li>Generate invoice for completed orders.</li>
+      <li>Display invoice with product, customer, order, price, total, and status details.</li>
+      <li>Print invoice from the browser.</li>
+      <li>Send invoice to customer email.</li>
+      <li>Send admin copy/BCC when configured.</li>
+      <li>Prevent invoice generation for invalid or unsupported order states.</li>
+    </ul>
+
+    <h3>4.11 Reporting and Exports</h3>
+    <ul>
+      <li>Export daily order reports, sales reports, product reports, and staff reports.</li>
+      <li>Export audit logs for admin users.</li>
+      <li>Generate database backup for admin users.</li>
+    </ul>
+
+    <h3>4.12 Monitoring and Audit</h3>
+    <ul>
+      <li>Show monitoring overview, recent audit logs, team health, critical alerts, inventory health, and category performance.</li>
+      <li>Allow admin users to export audit logs and download database backup.</li>
+    </ul>
+
+    <h2>5. Major User Workflows</h2>
+    <div class="grid">
+      <div class="box"><strong>Login Workflow</strong>User opens the application, enters credentials, receives a JWT token, and sees role-based screens.</div>
+      <div class="box"><strong>Product Restock Workflow</strong>Admin or manager selects a product, enters batch details, and the system updates stock and logs movement.</div>
+      <div class="box"><strong>Sales Order Workflow</strong>User selects customer and product, the system checks stock, deducts FIFO batches, saves order, and updates customer history.</div>
+      <div class="box"><strong>Order Cancellation Workflow</strong>System restores consumed quantities to original batches and recalculates product stock/status.</div>
+      <div class="box"><strong>Invoice Workflow</strong>User generates a printable invoice for a completed order and can send it to the customer by email.</div>
+    </div>
+
+    <h2>6. Input and Output Summary</h2>
+    <table>
+      <tr><th>Module</th><th>Main Inputs</th><th>Main Outputs</th></tr>
+      <tr><td>Authentication</td><td>Username, password, reset/change password details</td><td>JWT token, user profile, success/error messages</td></tr>
+      <tr><td>Inventory</td><td>Product data, stock, price, supplier, expiry, low-stock point</td><td>Product list, stock status, alerts, movement logs</td></tr>
+      <tr><td>Batches</td><td>Quantity, supplier, purchase cost, selling price, expiry</td><td>FIFO batches, updated stock, batch usage</td></tr>
+      <tr><td>Suppliers</td><td>Company and performance details</td><td>Supplier list, intelligence, product mappings</td></tr>
+      <tr><td>Orders</td><td>Customer, product, quantity, status</td><td>Order records, invoice, stock deduction, profit calculation</td></tr>
+      <tr><td>Customers</td><td>Name, phone, email, address</td><td>Customer list and order history</td></tr>
+      <tr><td>Employees</td><td>User details, role, status, department</td><td>Employee records and access control</td></tr>
+      <tr><td>Reports</td><td>Date range, report type, export format</td><td>Reports, audit exports, backup files</td></tr>
+    </table>
+
+    <h2>7. Business Rules</h2>
+    <ul>
+      <li>Only authenticated users can access protected application features.</li>
+      <li>Admin users have the highest permission level.</li>
+      <li>Product, supplier, customer, and employee deletion are restricted by role.</li>
+      <li>Restocking is available to admin and manager users.</li>
+      <li>FIFO inventory deduction must use oldest available batches first.</li>
+      <li>Cancelled orders must restore stock to the same batches that were used.</li>
+      <li>Product status must reflect current stock and low-stock rules.</li>
+      <li>Completed order invoices can be generated and emailed.</li>
+      <li>Audit and backup exports are restricted to admin users.</li>
+    </ul>
+
+    <h2>8. Non-Functional Requirements</h2>
+    <table>
+      <tr><th>Requirement</th><th>Description</th></tr>
+      <tr><td>Security</td><td>JWT authentication, bcrypt password hashing, and role-based authorization</td></tr>
+      <tr><td>Usability</td><td>Single-page interface with dashboard, tables, forms, modals, alerts, and charts</td></tr>
+      <tr><td>Reliability</td><td>Stock synchronization, FIFO restoration, and auto-bootstrapping database logic</td></tr>
+      <tr><td>Maintainability</td><td>Separate route modules, frontend modules, and shared helper libraries</td></tr>
+      <tr><td>Performance</td><td>MySQL connection pooling and focused API endpoints</td></tr>
+      <tr><td>Auditability</td><td>Activity logs, inventory movements, and audit export support</td></tr>
+      <tr><td>Availability</td><td>Local deployment through Node.js and MySQL with backup support</td></tr>
+    </table>
+
+    <h2>9. Assumptions and Constraints</h2>
+    <ul>
+      <li>The application is intended for a local or small business deployment.</li>
+      <li>MySQL must be running before the application starts.</li>
+      <li>Valid environment variables must be configured in <code>.env</code>.</li>
+      <li>Email invoice delivery requires SMTP configuration.</li>
+      <li>The application currently handles sales orders around a selected inventory item.</li>
+      <li>Admin users are responsible for backup, audit, and destructive operations.</li>
+    </ul>
+
+    <h2>10. Acceptance Criteria</h2>
+    <div class="callout">
+      The system is acceptable when users can log in, see role-appropriate screens, manage inventory/suppliers/customers/orders, restock products with FIFO batches, restore stock after cancellation, generate invoices, view dashboard analytics, and export authorized reports or backups successfully.
+    </div>
+  </main>
+</body>
+</html>

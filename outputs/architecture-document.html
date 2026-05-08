@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Smart Inventory Management System - Architecture Document</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #172033;
+      background: #ffffff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 11.2pt;
+      line-height: 1.55;
+    }
+
+    .cover {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border: 1px solid #d7dde8;
+      padding: 42px;
+      page-break-after: always;
+      background: linear-gradient(135deg, #f7f9fc 0%, #ffffff 54%, #eef5f2 100%);
+    }
+
+    .label {
+      color: #2f6b5f;
+      font-size: 10pt;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      color: #101828;
+      font-size: 30pt;
+      line-height: 1.12;
+      margin: 0 0 18px;
+      max-width: 760px;
+    }
+
+    .subtitle {
+      color: #475467;
+      font-size: 14pt;
+      max-width: 720px;
+      margin: 0 0 44px;
+    }
+
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      max-width: 720px;
+      margin-top: 28px;
+    }
+
+    .cover-card {
+      border: 1px solid #d7dde8;
+      background: rgba(255, 255, 255, .82);
+      padding: 14px 16px;
+    }
+
+    .cover-card strong {
+      display: block;
+      color: #101828;
+      margin-bottom: 3px;
+    }
+
+    .doc {
+      max-width: 100%;
+    }
+
+    h2 {
+      color: #101828;
+      font-size: 17pt;
+      margin: 26px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #d7dde8;
+      page-break-after: avoid;
+    }
+
+    h3 {
+      color: #1d2939;
+      font-size: 13.4pt;
+      margin: 18px 0 8px;
+      page-break-after: avoid;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    ul, ol {
+      margin: 7px 0 13px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin: 3px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px;
+      page-break-inside: avoid;
+    }
+
+    th, td {
+      border: 1px solid #d7dde8;
+      padding: 8px 10px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf3f1;
+      color: #101828;
+      text-align: left;
+      font-weight: 700;
+    }
+
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #f2f4f7;
+      color: #344054;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 10pt;
+    }
+
+    .diagram {
+      border: 1px solid #cfd8e3;
+      background: #fbfcfe;
+      padding: 14px;
+      margin: 12px 0 18px;
+      page-break-inside: avoid;
+    }
+
+    .diagram-title {
+      color: #344054;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .node {
+      border: 1px solid #aebaca;
+      background: #ffffff;
+      padding: 8px 10px;
+      min-width: 110px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .arrow {
+      color: #667085;
+      font-weight: 700;
+    }
+
+    .relations {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+
+    .relation {
+      border: 1px solid #d7dde8;
+      background: #ffffff;
+      padding: 7px 9px;
+      font-size: 10.2pt;
+    }
+
+    .callout {
+      border-left: 4px solid #2f6b5f;
+      background: #f3f8f6;
+      padding: 10px 12px;
+      margin: 12px 0 16px;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="label">Architecture Document</div>
+    <h1>Smart Inventory Management System</h1>
+    <p class="subtitle">Project-specific architecture for the Node.js, Express.js, MySQL, and vanilla JavaScript inventory management application.</p>
+    <div class="cover-grid">
+      <div class="cover-card"><strong>Project</strong> Smart Inventory Management System</div>
+      <div class="cover-card"><strong>Document Type</strong> Software Architecture Document</div>
+      <div class="cover-card"><strong>Backend</strong> Node.js and Express.js</div>
+      <div class="cover-card"><strong>Database</strong> MySQL 8+</div>
+      <div class="cover-card"><strong>Frontend</strong> HTML5, CSS3, Vanilla JavaScript</div>
+      <div class="cover-card"><strong>Prepared For</strong> Project Submission</div>
+    </div>
+  </section>
+
+  <main class="doc">
+    <h2>1. Project Overview</h2>
+    <p>Smart Inventory Management System is a full-stack inventory and sales management application for retail or warehouse operations. The system supports product stock tracking, FIFO batch-based inventory deduction, supplier management, order processing, customer history, staff access control, analytics dashboards, exports, monitoring, and invoice delivery.</p>
+    <p>The application is built with a Node.js and Express.js backend, a MySQL database, and a vanilla HTML, CSS, and JavaScript frontend served from the same Express application.</p>
+
+    <h2>2. Architecture Style</h2>
+    <p>The project follows a layered web application architecture:</p>
+    <ul>
+      <li><strong>Presentation Layer:</strong> Browser-based UI in <code>public/</code></li>
+      <li><strong>API Layer:</strong> Express route modules in <code>routes/</code></li>
+      <li><strong>Business Logic Layer:</strong> Inventory, alerts, logging, mail, validation, and movement utilities in <code>lib/</code> and <code>src/shared/</code></li>
+      <li><strong>Data Access Layer:</strong> MySQL connection pool and SQL queries using <code>mysql2</code></li>
+      <li><strong>Database Layer:</strong> MySQL schema, migrations, and bootstrapping scripts in <code>db/</code></li>
+    </ul>
+    <p>This structure keeps the user interface, HTTP endpoints, reusable business logic, and database concerns separated while remaining practical for a small to medium inventory system.</p>
+
+    <h2>3. Technology Stack</h2>
+    <table>
+      <tr><th>Layer</th><th>Technology</th></tr>
+      <tr><td>Frontend</td><td>HTML5, CSS3, Vanilla JavaScript, Chart.js</td></tr>
+      <tr><td>Backend</td><td>Node.js, Express.js</td></tr>
+      <tr><td>Database</td><td>MySQL 8+</td></tr>
+      <tr><td>Authentication</td><td>JWT, bcryptjs</td></tr>
+      <tr><td>Email</td><td>nodemailer</td></tr>
+      <tr><td>Exports</td><td>CSV and PDF-style generated reports</td></tr>
+      <tr><td>Development</td><td>nodemon</td></tr>
+    </table>
+
+    <h2>4. High-Level System Flow</h2>
+    <div class="diagram">
+      <div class="diagram-title">System Request Flow</div>
+      <div class="flow">
+        <div class="node">Admin / Manager / Staff</div><div class="arrow">-&gt;</div>
+        <div class="node">Web Browser</div><div class="arrow">-&gt;</div>
+        <div class="node">Express REST API</div><div class="arrow">-&gt;</div>
+        <div class="node">JWT + RBAC</div><div class="arrow">-&gt;</div>
+        <div class="node">Business Utilities</div><div class="arrow">-&gt;</div>
+        <div class="node">MySQL Database</div>
+      </div>
+      <p style="margin-top:12px;">The Express application also serves static frontend assets and connects to email, export, monitoring, and backup workflows.</p>
+    </div>
+
+    <h2>5. Main Application Components</h2>
+    <h3>5.1 Frontend</h3>
+    <p>The frontend is located in <code>public/</code> and is served directly by Express.</p>
+    <table>
+      <tr><th>File</th><th>Responsibility</th></tr>
+      <tr><td><code>public/index.html</code></td><td>Main single-page interface</td></tr>
+      <tr><td><code>public/app.js</code></td><td>Authentication, navigation, orders, customers, employees, invoices, exports, and shared UI behavior</td></tr>
+      <tr><td><code>public/inventory.js</code></td><td>Inventory CRUD, restocking, supplier linking, batch management, and stock workflows</td></tr>
+      <tr><td><code>public/suppliers.js</code></td><td>Supplier listing and supplier product intelligence</td></tr>
+      <tr><td><code>public/dashboard.js</code></td><td>Sales reports, charts, alerts, approvals, and dashboard metrics</td></tr>
+      <tr><td><code>public/styles.css</code>, <code>public/theme.css</code></td><td>UI styling and theme rules</td></tr>
+    </table>
+
+    <h3>5.2 Backend Application</h3>
+    <p>The backend starts through <code>server.js</code>, which loads <code>src/server.js</code>. The Express app is created in <code>src/app.js</code>.</p>
+    <ul>
+      <li>Serves static frontend assets</li>
+      <li>Parses JSON and form data</li>
+      <li>Enables CORS</li>
+      <li>Registers API routes</li>
+      <li>Provides <code>/api/health</code></li>
+      <li>Returns <code>index.html</code> for non-API routes</li>
+      <li>Handles 404 and centralized errors</li>
+    </ul>
+
+    <h3>5.3 API Route Modules</h3>
+    <table>
+      <tr><th>Module</th><th>Base Path</th><th>Responsibility</th></tr>
+      <tr><td><code>routes/auth.js</code></td><td><code>/api/auth</code></td><td>Login, current user, logout, password reset/change</td></tr>
+      <tr><td><code>routes/inventory.js</code></td><td><code>/api/inventory</code></td><td>Product CRUD, stock alerts, pending approvals, supplier links, restock, FIFO batches</td></tr>
+      <tr><td><code>routes/suppliers.js</code></td><td><code>/api/suppliers</code></td><td>Supplier CRUD, supplier intelligence, supplier products</td></tr>
+      <tr><td><code>routes/orders.js</code></td><td><code>/api/orders</code></td><td>Order CRUD, FIFO stock deduction/restoration, breakdowns, invoice email</td></tr>
+      <tr><td><code>routes/employees.js</code></td><td><code>/api/employees</code></td><td>User and staff management</td></tr>
+      <tr><td><code>routes/customers.js</code></td><td><code>/api/customers</code></td><td>Customer CRUD and customer order history</td></tr>
+      <tr><td><code>routes/exports.js</code></td><td><code>/api/exports</code></td><td>Daily exports and report downloads</td></tr>
+      <tr><td><code>routes/monitoring.js</code></td><td><code>/api/monitoring</code></td><td>Audit logs, system overview, team health, backups</td></tr>
+    </table>
+
+    <h2>6. Authentication and Authorization</h2>
+    <p>The system uses JWT-based authentication. After login, the backend validates the submitted password with bcrypt and returns a signed JWT. The frontend sends this token in the <code>Authorization: Bearer &lt;token&gt;</code> header. The authentication middleware verifies the token and role guards restrict protected routes.</p>
+    <table>
+      <tr><th>Role</th><th>Access Level</th></tr>
+      <tr><td>Admin</td><td>Full control, user management, approvals, deletes, audits, and backups</td></tr>
+      <tr><td>Manager</td><td>Inventory and supplier operations, restocking, order management, and monitoring</td></tr>
+      <tr><td>Staff</td><td>Daily operations such as viewing inventory and creating orders</td></tr>
+    </table>
+
+    <h2>7. Database Architecture</h2>
+    <p>The project uses MySQL with a connection pool defined in <code>db/connection.js</code>. The main schema is in <code>db/schema.sql</code>, while runtime compatibility and additional tables are handled by <code>db/bootstrap.js</code>.</p>
+    <table>
+      <tr><th>Table</th><th>Purpose</th></tr>
+      <tr><td><code>users</code></td><td>Login accounts, roles, departments, and employee details</td></tr>
+      <tr><td><code>suppliers</code></td><td>Supplier profile and performance details</td></tr>
+      <tr><td><code>inventory</code></td><td>Product master data and current stock summary</td></tr>
+      <tr><td><code>orders</code></td><td>Customer orders and order status</td></tr>
+      <tr><td><code>inventory_movements</code></td><td>Stock movement audit trail</td></tr>
+      <tr><td><code>supplier_products</code></td><td>Supplier-to-product mapping, pricing, quality, and lead-time data</td></tr>
+      <tr><td><code>activity_logs</code></td><td>User and system activity audit records</td></tr>
+      <tr><td><code>customers</code></td><td>Customer contact and history support</td></tr>
+      <tr><td><code>inventory_batches</code></td><td>FIFO stock batches with purchase cost, selling price, and available quantity</td></tr>
+      <tr><td><code>order_batch_usage</code></td><td>Tracks which inventory batches were consumed by each order</td></tr>
+    </table>
+
+    <h2>8. Entity Relationship View</h2>
+    <div class="diagram">
+      <div class="diagram-title">Important Relationships</div>
+      <div class="relations">
+        <div class="relation"><code>users</code> creates many <code>orders</code></div>
+        <div class="relation"><code>users</code> performs many <code>activity_logs</code></div>
+        <div class="relation"><code>suppliers</code> supplies many <code>inventory</code> items</div>
+        <div class="relation"><code>suppliers</code> offers many <code>supplier_products</code></div>
+        <div class="relation"><code>inventory</code> has many <code>supplier_products</code></div>
+        <div class="relation"><code>inventory</code> contains many <code>inventory_batches</code></div>
+        <div class="relation"><code>inventory</code> records many <code>inventory_movements</code></div>
+        <div class="relation"><code>inventory</code> is sold through many <code>orders</code></div>
+        <div class="relation"><code>orders</code> consumes many <code>order_batch_usage</code> rows</div>
+        <div class="relation"><code>inventory_batches</code> is used by many <code>order_batch_usage</code> rows</div>
+        <div class="relation"><code>customers</code> places many <code>orders</code></div>
+      </div>
+    </div>
+
+    <h2>9. Key Business Workflows</h2>
+    <h3>9.1 Inventory Restocking</h3>
+    <ol>
+      <li>Admin or manager selects a product.</li>
+      <li>User enters supplier, quantity, purchase cost, selling price, and optional expiry date.</li>
+      <li>Backend creates or updates the related inventory batch.</li>
+      <li>Product stock is recalculated from active batches.</li>
+      <li>Inventory status is recalculated using low-stock rules.</li>
+      <li>Stock movement and activity logs are recorded.</li>
+    </ol>
+
+    <h3>9.2 FIFO Order Processing</h3>
+    <ol>
+      <li>User creates an order for a selected inventory item.</li>
+      <li>Backend checks available stock.</li>
+      <li>Stock is deducted from the oldest available batches first.</li>
+      <li>Batch usage is saved in <code>order_batch_usage</code>.</li>
+      <li>Order total cost and profit can be calculated from consumed batch costs.</li>
+      <li>Inventory stock and status are synchronized.</li>
+      <li>Low-stock alerts may be triggered.</li>
+    </ol>
+
+    <h3>9.3 Order Cancellation and Restoration</h3>
+    <ol>
+      <li>Order status changes to cancelled or the order is deleted.</li>
+      <li>Backend reads the original batch usage.</li>
+      <li>Stock is restored to the same batches that were consumed.</li>
+      <li>Inventory summary stock is synchronized.</li>
+      <li>Inventory movement and activity logs are updated.</li>
+    </ol>
+
+    <h3>9.4 Dashboard and Monitoring</h3>
+    <ol>
+      <li>Frontend requests analytics from dashboard and monitoring APIs.</li>
+      <li>Backend aggregates order, inventory, supplier, audit, and staff data from MySQL.</li>
+      <li>Frontend renders summary cards, alerts, charts, pending approvals, and reports.</li>
+    </ol>
+
+    <h3>9.5 Invoice Email</h3>
+    <ol>
+      <li>User requests invoice email for an order.</li>
+      <li>Backend validates order details and customer contact information.</li>
+      <li><code>lib/mailer.js</code> sends the invoice through nodemailer.</li>
+      <li>Activity is logged for tracking.</li>
+    </ol>
+
+    <h2>10. Security Design</h2>
+    <p>Security controls include JWT authentication, role-based authorization, bcrypt password hashing, centralized validation helpers, restricted destructive actions, and activity logs for important operations.</p>
+    <div class="callout">
+      Recommended future hardening includes httpOnly cookie sessions, login rate limiting, wider request validation coverage, transaction wrappers around inventory/order workflows, and secret rotation before deployment.
+    </div>
+
+    <h2>11. Deployment Architecture</h2>
+    <div class="diagram">
+      <div class="diagram-title">Local Deployment</div>
+      <div class="flow">
+        <div class="node">Developer Machine</div><div class="arrow">-&gt;</div>
+        <div class="node">Node.js Express Server</div><div class="arrow">-&gt;</div>
+        <div class="node">Static Frontend</div>
+        <div class="node">MySQL / XAMPP</div>
+        <div class="node">SMTP Email Provider</div>
+      </div>
+    </div>
+    <p>Required environment variables include <code>PORT</code>, <code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_USER</code>, <code>DB_PASSWORD</code>, <code>DB_NAME</code>, <code>JWT_SECRET</code>, <code>JWT_EXPIRES_IN</code>, and SMTP variables if invoice email is enabled.</p>
+
+    <h2>12. Quality Attributes</h2>
+    <table>
+      <tr><th>Attribute</th><th>Project Support</th></tr>
+      <tr><td>Maintainability</td><td>Separate route modules, shared utilities, and frontend modules</td></tr>
+      <tr><td>Security</td><td>JWT, RBAC, bcrypt, protected admin routes</td></tr>
+      <tr><td>Reliability</td><td>Auto-bootstrapping database fixes and stock synchronization</td></tr>
+      <tr><td>Auditability</td><td>Activity logs and inventory movement records</td></tr>
+      <tr><td>Usability</td><td>Single-page dashboard with inventory, orders, suppliers, customers, and reports</td></tr>
+      <tr><td>Extensibility</td><td>Route-per-domain structure allows new modules to be added cleanly</td></tr>
+    </table>
+
+    <h2>13. Future Enhancements</h2>
+    <ul>
+      <li>Add automated tests for FIFO order creation, cancellation, and restoration.</li>
+      <li>Use database transactions for order and restock workflows.</li>
+      <li>Add normalized order item support for multi-product orders.</li>
+      <li>Add pagination and filtering for large datasets.</li>
+      <li>Add formal migration tooling instead of mixed schema plus bootstrapping.</li>
+      <li>Add role-specific dashboard views.</li>
+      <li>Add REST API documentation with request and response examples.</li>
+      <li>Add production deployment guide for cloud hosting.</li>
+    </ul>
+  </main>
+</body>
+</html>
